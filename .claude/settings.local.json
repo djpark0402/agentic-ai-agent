@@ -20,7 +20,10 @@
       "Read(**/.env)",
       "Bash(bash .claude/hooks/auto-commit.sh)",
       "Bash(git checkout *)",
-      "Bash(bash /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)"
+      "Bash(bash /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)",
+      "Bash(git stash *)",
+      "Bash(git rebase *)",
+      "Bash(git add *)"
     ],
     "deny": [
       "Edit(**/.env)",
