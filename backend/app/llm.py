@@ -9,8 +9,8 @@ import httpx
 from .schemas import Message
 
 DEFAULT_MODEL = os.getenv("LLM_MODEL", "solar-pro3-260323")
-# BASE_URL = os.getenv("LLM_BASE_URL", "https://api.upstage.ai/v1")
-BASE_URL = os.getenv("LLM_BASE_URL", "http://10.47.18.100:8000/v1")
+BASE_URL = os.getenv("BASE_URL", "http://10.47.18.100:8000/v1")
+API_KEY = os.getenv("API_KEY", "")
 
 
 # def _build_lc_messages(messages: list[Message], system: str | None):
@@ -76,33 +76,81 @@ async def stream_events(
     #
     # yield {"type": "done"}
 
-    # --- HTTP POST 방식 호출 (OpenAI/Solar 호환 /v1/chat/completions) ---
+    # --- HTTP POST 스트리밍 호출 (OpenAI/Solar 호환 /v1/chat/completions) ---
+    import json as _json
+
     url = f"{BASE_URL.rstrip('/')}/chat/completions"
     payload = {
         "model": model or DEFAULT_MODEL,
         "messages": _build_payload_messages(messages, system),
-        "stream": False,
+        "stream": True,
     }
 
     yield {"type": "status", "stage": "thinking", "label": "생각하는 중..."}
 
-    import json as _json
+    headers = {}
+    if API_KEY:
+        headers["Authorization"] = f"Bearer {API_KEY}"
+
     print(f"[LLM REQUEST] POST {url}")
     print(_json.dumps(payload, ensure_ascii=False, indent=2))
 
+    first_token_sent = False
     async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(url, json=payload)
-        resp.raise_for_status()
-        data = resp.json()
-
-    content = ""
-    choices = data.get("choices") or []
-    if choices:
-        message = choices[0].get("message") or {}
-        content = message.get("content", "") or ""
-
-    if content:
-        yield {"type": "status", "stage": "generating", "label": "응답 생성 중..."}
-        yield {"type": "token", "content": content}
+        async with client.stream("POST", url, json=payload, headers=headers) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if not line.startswith("data: "):
+                    continue
+                data_str = line[len("data: "):]
+                if data_str.strip() == "[DONE]":
+                    break
+                chunk = _json.loads(data_str)
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                delta = choices[0].get("delta") or {}
+                content = delta.get("content", "")
+                if content:
+                    if not first_token_sent:
+                        yield {"type": "status", "stage": "generating", "label": "응답 생성 중..."}
+                        first_token_sent = True
+                    yield {"type": "token", "content": content}
 
     yield {"type": "done"}
+
+    # --- Upstage API 호출 (주석 처리, 필요 시 위 블록과 교체) ---
+    # api_key = os.getenv("UPSTAGE_API_KEY", "")
+    # url = f"{BASE_URL.rstrip('/')}/chat/completions"
+    # headers = {
+    #     "Authorization": f"Bearer {api_key}",
+    #     "Content-Type": "application/json",
+    # }
+    # payload = {
+    #     "model": model or DEFAULT_MODEL,
+    #     "messages": _build_payload_messages(messages, system),
+    #     "stream": False,
+    # }
+    #
+    # yield {"type": "status", "stage": "thinking", "label": "생각하는 중..."}
+    #
+    # import json as _json
+    # print(f"[LLM REQUEST] POST {url}")
+    # print(_json.dumps(payload, ensure_ascii=False, indent=2))
+    #
+    # async with httpx.AsyncClient(timeout=60.0) as client:
+    #     resp = await client.post(url, json=payload, headers=headers)
+    #     resp.raise_for_status()
+    #     data = resp.json()
+    #
+    # content = ""
+    # choices = data.get("choices") or []
+    # if choices:
+    #     message = choices[0].get("message") or {}
+    #     content = message.get("content", "") or ""
+    #
+    # if content:
+    #     yield {"type": "status", "stage": "generating", "label": "응답 생성 중..."}
+    #     yield {"type": "token", "content": content}
+    #
+    # yield {"type": "done"}
