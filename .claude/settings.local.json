@@ -24,7 +24,9 @@
       "Bash(git stash *)",
       "Bash(git rebase *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(gh pr *)",
+      "Bash(git pull *)"
     ],
     "deny": [
       "Edit(**/.env)",
