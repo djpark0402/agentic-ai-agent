@@ -11,28 +11,28 @@ if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --other
   exit 0
 fi
 
-# 변경된 python 파일 수집 (tracked + untracked)
-mapfile -t PY_FILES < <({ git diff --name-only HEAD -- '*.py'; git ls-files --others --exclude-standard -- '*.py'; } | sort -u)
+# 변경된 python 파일 수집 (tracked + untracked), 줄바꿈 구분
+PY_FILES=$({ git diff --name-only HEAD -- '*.py'; git ls-files --others --exclude-standard -- '*.py'; } | sort -u)
 
-if [ ${#PY_FILES[@]} -gt 0 ]; then
-  LINT_OUTPUT=""
+if [ -n "$PY_FILES" ]; then
   if command -v ruff >/dev/null 2>&1; then
-    if ! LINT_OUTPUT=$(ruff check "${PY_FILES[@]}" 2>&1); then
-      msg "⚠️ ruff lint 실패 — 자동 커밋 중단. 수정 후 다시 시도."
+    if ! echo "$PY_FILES" | xargs ruff check >/tmp/claude-lint.log 2>&1; then
+      msg "⚠️ ruff lint 실패 — 자동 커밋 중단 (/tmp/claude-lint.log 확인)"
       exit 0
     fi
   elif command -v flake8 >/dev/null 2>&1; then
-    if ! LINT_OUTPUT=$(flake8 "${PY_FILES[@]}" 2>&1); then
-      msg "⚠️ flake8 lint 실패 — 자동 커밋 중단."
+    if ! echo "$PY_FILES" | xargs flake8 >/tmp/claude-lint.log 2>&1; then
+      msg "⚠️ flake8 lint 실패 — 자동 커밋 중단"
       exit 0
     fi
   else
-    for f in "${PY_FILES[@]}"; do
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
       if ! python3 -m py_compile "$f" 2>/dev/null; then
-        msg "⚠️ python 구문 오류 ($f) — 자동 커밋 중단."
+        msg "⚠️ python 구문 오류 ($f) — 자동 커밋 중단"
         exit 0
       fi
-    done
+    done <<< "$PY_FILES"
   fi
 fi
 
