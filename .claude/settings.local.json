@@ -23,7 +23,8 @@
       "Bash(bash /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)",
       "Bash(git stash *)",
       "Bash(git rebase *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ],
     "deny": [
       "Edit(**/.env)",
