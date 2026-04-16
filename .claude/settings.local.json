@@ -18,7 +18,13 @@
       "Skill(update-config)",
       "Bash(chmod +x *)",
       "Read(**/.env)",
-      "Bash(bash .claude/hooks/auto-commit.sh)"
+      "Bash(bash .claude/hooks/auto-commit.sh)",
+      "Bash(git checkout *)",
+      "Bash(bash /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)",
+      "Bash(git stash *)",
+      "Bash(git rebase *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
     ],
     "deny": [
       "Edit(**/.env)",
@@ -32,6 +38,18 @@
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start.sh",
+            "timeout": 30,
+            "statusMessage": "세션 브랜치 생성 중..."
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
