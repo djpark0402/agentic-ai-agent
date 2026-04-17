@@ -51,7 +51,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 if git commit -m "$COMMIT_MSG" >/tmp/claude-auto-commit.log 2>&1; then
   SHA=$(git rev-parse --short HEAD)
-  msg "✅ 로컬 자동 커밋 완료 ($SHA) — push 원하면 요청하세요"
+  BRANCH=$(git branch --show-current 2>/dev/null)
+  msg "✅ 로컬 자동 커밋 완료 ($SHA)"
+
+  # 세션 브랜치에서 작업 중이면 pr-develop 머지 여부를 Claude에게 알림
+  if echo "$BRANCH" | grep -q '^feat/session-'; then
+    msg "📌 현재 세션 브랜치($BRANCH)에서 작업 중입니다. 사용자에게 'feat/pr-develop에 머지할까요?' 라고 반드시 물어보세요."
+  fi
 else
   msg "❌ 자동 커밋 실패 — /tmp/claude-auto-commit.log 확인"
 fi
