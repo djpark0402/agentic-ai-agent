@@ -245,28 +245,176 @@ fi
 
 ---
 
-## 6. 아키텍처 다이어그램
+## 6. Hook 수명주기 1:1 매핑표
 
-전체 워크플로우는 `docs/workflow-sequence.puml`을 참고하세요.
+> [공식 문서](https://code.claude.com/docs/ko/hooks)의 Hook 수명주기 전체 이벤트와
+> 본 프로젝트의 사용 여부를 1:1 매핑한 표입니다.
+
+### 6-1. 세션 수명주기 (Session Lifecycle)
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **SessionStart** | 세션 시작/재개 | ✅ 사용 | `session-start.sh` — feat/pr-develop → feat/new-promt-* 브랜치 자동 생성 |
+| **InstructionsLoaded** | CLAUDE.md/rules 로드 | ❌ 미사용 | CLAUDE.md가 기본 로딩되므로 별도 훅 불필요 |
+| **SessionEnd** | 세션 종료 | ❌ 미사용 | 종료 시 특별한 처리 없음 (자동 커밋은 Stop에서 처리) |
+
+### 6-2. 사용자 입력 (User Input)
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **UserPromptSubmit** | 프롬프트 제출 시 (Claude 처리 전) | ❌ 미사용 | 프롬프트 검증/필터링 필요 없음. 향후 금지어 필터 등에 활용 가능 |
+
+### 6-3. 도구 수명주기 (Tool Lifecycle) — 에이전트 루프 내 반복
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **PreToolUse** | 도구 실행 전 (차단 가능) | ✅ 사용 | `settings.json` 인라인 — Edit/Write(**/.env) 차단 (`exit 2`) |
+| **PermissionRequest** | 권한 대화 상자 표시 | ❌ 미사용 | permissions deny/ask 규칙으로 충분. 향후 자동 승인 정책에 활용 가능 |
+| **PostToolUse** | 도구 실행 성공 후 | ✅ 사용 | `post-lint.sh` — Write/Edit 후 즉시 lint 검사 (ruff/eslint) |
+| **PostToolUseFailure** | 도구 실행 실패 후 | ❌ 미사용 | 실패 시 별도 처리 없음. 향후 에러 로깅에 활용 가능 |
+| **PermissionDenied** | 자동 모드에서 거부 | ❌ 미사용 | auto 모드 미사용 (default 모드 운영) |
+
+### 6-4. 에이전트 및 작업 (Agent & Task)
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **SubagentStart** | Subagent 생성 시 | ❌ 미사용 | 서브에이전트 생성 시 별도 처리 없음 |
+| **SubagentStop** | Subagent 완료 시 | ❌ 미사용 | 서브에이전트 종료 시 별도 처리 없음 |
+| **TaskCreated** | 작업 생성 시 | ❌ 미사용 | 작업 관리 훅 미적용 |
+| **TaskCompleted** | 작업 완료 시 | ❌ 미사용 | 작업 관리 훅 미적용 |
+| **TeammateIdle** | 팀원 유휴 전환 시 | ❌ 미사용 | 팀 모드 미사용 |
+
+### 6-5. 제어 흐름 (Control Flow)
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **Stop** | Claude 응답 완료 (턴 종료) | ✅ 사용 | `auto-commit.sh` — lint → 자동 커밋 → `decision: block`으로 머지 질문 강제 |
+| **StopFailure** | API 오류로 턴 종료 | ❌ 미사용 | API 오류 시 별도 처리 없음. 향후 재시도 로직에 활용 가능 |
+
+### 6-6. 구성 및 파일 (Configuration & Files) — 비동기
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **ConfigChange** | settings 파일 변경 시 | ❌ 미사용 | 설정 변경 감지 불필요. 향후 감사 로그에 활용 가능 |
+| **CwdChanged** | 작업 디렉토리 변경 시 | ❌ 미사용 | 단일 프로젝트 디렉토리에서 작업 |
+| **FileChanged** | 감시 파일 변경 시 | ❌ 미사용 | 파일 감시 불필요. 향후 .env 변경 감지에 활용 가능 |
+
+### 6-7. 컨텍스트 압축 (Compaction) — 비동기
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **PreCompact** | 압축 시작 전 | ❌ 미사용 | 압축 전 처리 불필요 |
+| **PostCompact** | 압축 완료 후 | ❌ 미사용 | 향후 압축 후 규칙 재주입(SessionStart matcher: "compact")에 활용 가능 |
+
+### 6-8. 알림 (Notifications) — 비동기
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **Notification** | Claude Code 알림 발송 시 | ❌ 미사용 | 알림 커스터마이징 불필요. 향후 Slack 연동 등에 활용 가능 |
+
+### 6-9. MCP (Model Context Protocol)
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **Elicitation** | MCP 서버 입력 요청 시 | ❌ 미사용 | MCP 서버 미사용 |
+| **ElicitationResult** | MCP 응답 완료 후 | ❌ 미사용 | MCP 서버 미사용 |
+
+### 6-10. 버전 제어 (Version Control)
+
+| 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
+|:----------:|----------|:--------:|-------------------|
+| **WorktreeCreate** | Git worktree 생성 시 | ❌ 미사용 | worktree 미사용 (세션 브랜치로 대체) |
+| **WorktreeRemove** | Worktree 제거 시 | ❌ 미사용 | worktree 미사용 |
+
+---
+
+### 6-11. 사용 현황 요약
 
 ```
-[사용자] → [Claude Code]
-              ↓
-         SessionStart 훅 → feat/new-promt-* 브랜치 생성
-              ↓
-         작업 수행 (TDD)
-              ↓
-         PreToolUse 훅 → .env 보호 검사
-              ↓
-         PostToolUse 훅 → 즉시 lint 검사
-              ↓
-         Stop 훅 → lint → 자동 커밋 → block 머지 알림
-              ↓
-         "pr-develop에 머지할까요?" (강제 질문)
-              ↓ (승인)
-         머지 + 세션 브랜치 삭제
-              ↓
-         "develop으로 PR 생성할까요?" (강제 질문)
-              ↓ (승인)
-         rebase → push → PR 생성
+공식 Hook 이벤트: 총 23개
+├── ✅ 사용 중: 4개 (17%)
+│   ├── SessionStart  → session-start.sh (브랜치 자동 생성)
+│   ├── PreToolUse    → 인라인 command (.env 차단)
+│   ├── PostToolUse   → post-lint.sh (즉시 lint)
+│   └── Stop          → auto-commit.sh (자동 커밋 + block 머지 알림)
+│
+└── ❌ 미사용: 19개 (83%)
+    ├── 현재 불필요: 15개 (단일 프로젝트, MCP 미사용 등)
+    └── 향후 활용 가능: 4개
+        ├── UserPromptSubmit — 금지어 필터
+        ├── PostCompact — 압축 후 규칙 재주입
+        ├── Notification — Slack 연동
+        └── FileChanged — .env 변경 감지
 ```
+
+### 6-12. 수명주기 흐름도 (본 프로젝트 적용)
+
+```
+Claude Code 실행
+    │
+    ▼
+╔═══════════════════════════════════════════════════════╗
+║ ① SessionStart                                       ║
+║    session-start.sh 실행                              ║
+║    → develop → feat/pr-develop → feat/new-promt-*    ║
+╚═══════════════════╤═══════════════════════════════════╝
+    ┌───────────────┘
+    │   InstructionsLoaded (미사용) — CLAUDE.md 기본 로딩
+    ▼
+╔═══════════════════════════════════════════════════════╗
+║   UserPromptSubmit (미사용)                           ║
+╠═══════════════════════════════════════════════════════╣
+║                                                       ║
+║   ┌─── 에이전트 루프 (반복) ──────────────────────┐   ║
+║   │                                               │   ║
+║   │  ② PreToolUse ✅                              │   ║
+║   │     Edit/Write(**/.env) → exit 2 차단          │   ║
+║   │              │                                │   ║
+║   │     PermissionRequest (미사용)                 │   ║
+║   │              │                                │   ║
+║   │        도구 실행 (Edit, Write, Bash 등)        │   ║
+║   │              │                                │   ║
+║   │  ③ PostToolUse ✅                             │   ║
+║   │     post-lint.sh 실행                          │   ║
+║   │     → *.py: ruff check                        │   ║
+║   │     → *.ts: eslint                            │   ║
+║   │              │                                │   ║
+║   │     PostToolUseFailure (미사용)                │   ║
+║   │     PermissionDenied (미사용)                  │   ║
+║   │     SubagentStart/Stop (미사용)                │   ║
+║   │     TaskCreated/Completed (미사용)             │   ║
+║   │     Elicitation/Result (미사용)                │   ║
+║   │                                               │   ║
+║   └───────────────────────────────────────────────┘   ║
+║                                                       ║
+╠═══════════════════════════════════════════════════════╣
+║ ④ Stop ✅                                            ║
+║    auto-commit.sh 실행                                ║
+║    → Python lint (ruff → flake8 → py_compile)        ║
+║    → Frontend lint (eslint → tsc --noEmit)           ║
+║    → git add -A (.env 제외)                           ║
+║    → git commit                                       ║
+║    → decision: "block" → Claude 강제 재응답            ║
+║    → "feat/pr-develop에 머지할까요?" 질문              ║
+║                                                       ║
+║    StopFailure (미사용)                               ║
+╠═══════════════════════════════════════════════════════╣
+║   비동기 이벤트 (모두 미사용)                          ║
+║    ConfigChange / CwdChanged / FileChanged            ║
+║    PreCompact / PostCompact                           ║
+║    Notification                                       ║
+║    WorktreeCreate / WorktreeRemove                    ║
+╠═══════════════════════════════════════════════════════╣
+║   SessionEnd (미사용)                                 ║
+╚═══════════════════════════════════════════════════════╝
+    │
+    ▼ (머지 승인 시 — Claude 수동 수행, 훅 아님)
+    │
+    feat/pr-develop에 머지 + 세션 브랜치 삭제
+    │
+    ▼ (PR 승인 시)
+    │
+    rebase → push → gh pr create
+```
+
+> 전체 시퀀스 다이어그램은 `docs/workflow-sequence.puml`을 참고하세요.
