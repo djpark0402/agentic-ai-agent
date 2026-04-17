@@ -1,0 +1,96 @@
+@startuml 자동화 워크플로우 시퀀스
+
+title Claude Code 자동화 워크플로우
+
+actor 사용자
+participant "Claude Code" as Claude
+participant "SessionStart 훅" as SessionHook
+participant "Stop 훅\n(auto-commit.sh)" as StopHook
+database "Git" as Git
+
+== 세션 시작 ==
+
+사용자 -> Claude : Claude Code 실행
+activate Claude
+Claude -> SessionHook : SessionStart 훅 자동 실행
+activate SessionHook
+
+SessionHook -> Git : feat/pr-develop 브랜치 존재 확인
+alt feat/pr-develop 없음
+    SessionHook -> Git : develop에서 feat/pr-develop 생성
+end
+SessionHook -> Git : feat/pr-develop에서\nfeat/new-promt-YYYYMMDD-HHMMSS 생성
+SessionHook -> Git : 세션 브랜치로 checkout
+SessionHook --> Claude : "세션 브랜치 생성: feat/new-promt-*"
+deactivate SessionHook
+
+== 프롬프트 턴 (반복) ==
+
+사용자 -> Claude : 작업 요청 (코드 수정/기능 추가 등)
+activate Claude
+
+Claude -> Git : feat/new-promt-* 브랜치에서 파일 수정
+Claude --> 사용자 : 작업 결과 응답
+
+Claude -> StopHook : Stop 훅 자동 실행 (턴 종료)
+activate StopHook
+
+StopHook -> Git : 변경사항 확인
+alt 변경사항 없음
+    StopHook --> Claude : "변경사항 없음 — 자동 커밋 건너뜀"
+else 변경사항 있음
+    group Python lint
+        StopHook -> StopHook : .py 파일 수집
+        alt ruff 사용 가능
+            StopHook -> StopHook : ruff check
+        else flake8 사용 가능
+            StopHook -> StopHook : flake8
+        else 폴백
+            StopHook -> StopHook : py_compile
+        end
+    end
+
+    group Frontend lint
+        StopHook -> StopHook : .ts/.tsx 파일 수집
+        alt eslint 사용 가능
+            StopHook -> StopHook : eslint
+        else tsconfig.json 존재
+            StopHook -> StopHook : tsc --noEmit
+        end
+    end
+
+    alt lint 실패
+        StopHook --> Claude : "⚠️ lint 실패 — 자동 커밋 중단"
+    else lint 통과
+        StopHook -> Git : git add -A\n(.env 제외)
+        StopHook -> Git : git commit "chore: 세션 자동 커밋"
+        StopHook --> Claude : "✅ 로컬 자동 커밋 완료"
+        StopHook --> Claude : "📌 사용자에게 'feat/pr-develop에\n머지할까요?' 라고 반드시 물어보세요"
+    end
+end
+deactivate StopHook
+
+Claude --> 사용자 : **"feat/pr-develop에 머지할까요?"**
+
+== 사용자 승인 시: pr-develop 머지 ==
+
+사용자 -> Claude : "네" (머지 승인)
+activate Claude
+
+Claude -> Git : git checkout feat/pr-develop
+Claude -> Git : git merge feat/new-promt-* --no-ff
+Claude -> Git : git branch -d feat/new-promt-*\n(세션 브랜치 삭제)
+Claude --> 사용자 : "머지 완료. **develop으로 PR 생성할까요?**"
+
+== 사용자 승인 시: develop PR 생성 ==
+
+사용자 -> Claude : "네" (PR 생성 승인)
+
+Claude -> Git : feat/pr-develop을\ndevelop 기준으로 rebase\n(충돌 방지)
+Claude -> Git : git push origin feat/pr-develop
+Claude -> Git : gh pr create\n--base develop\n--head feat/pr-develop
+Claude --> 사용자 : "PR 생성 완료: #번호"
+
+deactivate Claude
+
+@enduml
