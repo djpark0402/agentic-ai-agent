@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 세션 시작 시 브랜치 자동 생성
-# develop → feat/pr-develop → feat/session-YYYYMMDD-HHMMSS
+# develop → feat/pr-develop → feat/new-promt-YYYYMMDD-HHMMSS
 set -u
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 
@@ -8,7 +8,7 @@ msg() { printf '{"systemMessage":"%s"}\n' "$1"; }
 
 CURRENT=$(git branch --show-current 2>/dev/null)
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-SESSION_BRANCH="feat/session-${TIMESTAMP}"
+SESSION_BRANCH="feat/new-promt-${TIMESTAMP}"
 
 # feat/pr-develop 브랜치가 없으면 develop에서 생성
 if ! git rev-parse --verify feat/pr-develop >/dev/null 2>&1; then
