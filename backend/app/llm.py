@@ -7,10 +7,12 @@ import httpx
 # from langchain_upstage import ChatUpstage
 
 from .schemas import Message
+from .signing import build_hmac_headers
 
 DEFAULT_MODEL = os.getenv("LLM_MODEL", "solar-pro3-260323")
 BASE_URL = os.getenv("BASE_URL", "http://10.47.18.100:8000/v1")
 API_KEY = os.getenv("API_KEY", "")
+HMAC_SECRET = os.getenv("HMAC_SECRET", "")
 
 
 # def _build_lc_messages(messages: list[Message], system: str | None):
@@ -91,6 +93,8 @@ async def stream_events(
     headers = {}
     if API_KEY:
         headers["Authorization"] = f"Bearer {API_KEY}"
+    if HMAC_SECRET:
+        headers.update(build_hmac_headers(payload, API_KEY, HMAC_SECRET))
 
     print(f"[LLM REQUEST] POST {url}")
     print(_json.dumps(payload, ensure_ascii=False, indent=2))

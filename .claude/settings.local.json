@@ -19,19 +19,10 @@
       "Bash(chmod +x *)",
       "Read(**/.env)",
       "Bash(bash .claude/hooks/auto-commit.sh)",
-      "Bash(git checkout *)",
-      "Bash(bash /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)",
       "Bash(git stash *)",
-      "Bash(git rebase *)",
+      "Bash(git checkout *)",
       "Bash(git add *)",
-      "Bash(git commit *)",
-      "Bash(gh pr *)",
-      "Bash(git pull *)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('scripts',{}\\), indent=2\\)\\)\")",
-      "Bash(pkill -f \"uvicorn app.main:app\")",
-      "Bash(pkill -f \"vite\")",
-      "Bash(git branch *)",
-      "Bash(git merge *)"
+      "Bash(git reset *)"
     ],
     "deny": [
       "Edit(**/.env)",
@@ -45,18 +36,6 @@
     ]
   },
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/session-start.sh",
-            "timeout": 30,
-            "statusMessage": "세션 브랜치 생성 중..."
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
