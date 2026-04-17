@@ -14,7 +14,8 @@
 ├── hooks/
 │   ├── session-start.sh    ← 🟢 그대로 사용 가능
 │   ├── auto-commit.sh      ← 🟡 lint 부분만 수정
-│   └── post-lint.sh        ← 🟡 lint 도구에 맞게 수정
+│   ├── post-lint.sh        ← 🟡 lint 도구에 맞게 수정
+│   └── post-compact.sh     ← 🟡 재주입 규칙 내용만 수정
 └── agents/
     ├── team.md             ← 🔵 프로젝트마다 수정 필요
     ├── backend-agent.md    ← 🔵 기술 스택에 맞게 수정
@@ -234,6 +235,7 @@ fi
      □ hooks/session-start.sh — 그대로 복사 + chmod +x
      □ hooks/auto-commit.sh — lint 섹션 수정 + chmod +x
      □ hooks/post-lint.sh — case 문 수정 + chmod +x
+     □ hooks/post-compact.sh — 재주입 규칙 내용 수정 + chmod +x
      □ agents/ — 기술 스택에 맞게 재작성
 □ 4. CLAUDE.md 작성 — 아키텍처, 기술 스택 수정, 나머지는 복사
 □ 5. .github/PULL_REQUEST_TEMPLATE.md — 그대로 복사
