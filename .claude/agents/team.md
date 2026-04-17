@@ -9,7 +9,7 @@
 
 ## 에이전트 목록
 
-### 1. Backend 에이전트 (`backend-agnet.md`)
+### 1. Backend 에이전트 (`backend-agent.md`)
 - **역할**: Python/FastAPI 백엔드 시니어 개발자
 - **담당**: `backend/` 디렉토리
 - **기술**: Python 3.11, FastAPI, LangChain, Pydantic v2

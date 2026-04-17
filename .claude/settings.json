@@ -36,15 +36,16 @@
             "statusMessage": ".env 보호 검사 중..."
           }
         ]
-      },
+      }
+    ],
+    "PostCompact": [
       {
-        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "if": "Bash(rm -rf *)",
-            "command": "echo 'rm -rf 명령은 차단됩니다. 삭제가 필요하면 사용자에게 확인하세요.' >&2 && exit 2",
-            "statusMessage": "위험 명령 검사 중..."
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-compact.sh",
+            "timeout": 10,
+            "statusMessage": "압축 후 핵심 규칙 재주입 중..."
           }
         ]
       }

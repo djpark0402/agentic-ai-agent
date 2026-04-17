@@ -202,7 +202,21 @@ Claude --> User : "PR 생성 완료: #번호\n(GitHub Copilot이 리뷰 예정)"
 
 deactivate Claude
 
-== 권한 정책 요약 (settings.local.json) ==
+== 6. 컨텍스트 압축 시: 규칙 재주입 (PostCompact 훅) ==
+
+note over Claude
+  대화가 길어져 컨텍스트 압축이 발생하면
+  **post-compact.sh**가 자동 실행되어
+  핵심 규칙을 Claude 컨텍스트에 재주입합니다.
+
+  재주입 내용:
+  - 브랜치 규칙 (feat/new-promt-* 필수)
+  - 머지 알림 필수 (절대 생략 금지)
+  - PR 생성 절차 (rebase → push → gh pr create)
+  - TDD 우선, 한글 커밋, .env 수정 금지
+end note
+
+== 권한 정책 요약 (settings.json + settings.local.json) ==
 
 note over Git, GitHub
   **자동 허용 (allow)**

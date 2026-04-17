@@ -56,8 +56,10 @@ main (프로덕션)
 - **Stop 훅 자동 커밋**: 매 프롬프트 턴이 끝나면 `.claude/hooks/auto-commit.sh`가 실행되어 python lint(ruff→flake8→py_compile 순) 및 frontend lint(eslint→tsc --noEmit 순) 통과 시 변경사항을 로컬에 자동 커밋합니다. lint 실패 시 커밋은 중단됩니다. merge 후 feat/new-promt-* 작업 브랜치는 삭제하세요.
 - **원격 push는 항상 사용자 승인 필요**: `git push`는 permission `ask`로 설정되어 있습니다. 로컬 커밋 후 push가 필요하면 반드시 "지금 push 할까요?"라고 사용자에게 먼저 물어보세요.
 - **`.env` 파일은 read 전용**: Write/Edit는 permission `deny`로 차단되어 있습니다. `.env` 편집이 필요하면 사용자에게 직접 수정을 요청하세요.
-- **merge/PR 시 반드시 사용자 승인**: `feat/pr-develop`는 develop 브랜치에 merge 전 rebase 실행 하십시요.`feat/pr-develop`에 merge 하거나 `develop`에 PR 보낼 때 반드시 사용자에게 먼저 확인을 받으세요. 
-
+- **merge/PR 시 반드시 사용자 승인**: `feat/pr-develop`는 develop 브랜치에 merge 전 rebase 실행 하십시요.`feat/pr-develop`에 merge 하거나 `develop`에 PR 보낼 때 반드시 사용자에게 먼저 확인을 받으세요.
+- **PreToolUse 훅**: `.env` 파일 Edit/Write 시도 시 자동 차단 (exit 2)
+- **PostToolUse 훅**: Write/Edit 후 즉시 lint 검사 실행 (`post-lint.sh`)
+- **PostCompact 훅**: 컨텍스트 압축 후 핵심 규칙 자동 재주입 (`post-compact.sh`) — 브랜치 규칙, 머지 알림, PR 절차, TDD 등
 
 ## Claude 필수 행동 규칙 (절대 생략 금지)
 
