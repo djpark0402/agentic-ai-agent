@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 매 프롬프트 턴 종료 시 python lint 후 자동 로컬 커밋 + 세션 브랜치 머지 알림
+# 매 프롬프트 턴 종료 시 python/frontend lint 후 자동 로컬 커밋 + 브랜치 머지 알림
 set -u
 cd "$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 
@@ -7,13 +7,13 @@ msg() { printf '{"systemMessage":"%s"}\n' "$1"; }
 
 BRANCH=$(git branch --show-current 2>/dev/null)
 
-# 변경사항 없으면 커밋 건너뛰되, 세션 브랜치 머지 알림은 전달
+# 변경사항 없으면 종료
 if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
   msg "변경사항 없음 — 자동 커밋 건너뜀"
   exit 0
 fi
 
-# 변경된 python 파일 수집 (tracked + untracked), 줄바꿈 구분
+# ── Python lint ──
 PY_FILES=$({ git diff --name-only HEAD -- '*.py'; git ls-files --others --exclude-standard -- '*.py'; } | sort -u)
 
 if [ -n "$PY_FILES" ]; then
@@ -35,6 +35,23 @@ if [ -n "$PY_FILES" ]; then
         exit 0
       fi
     done <<< "$PY_FILES"
+  fi
+fi
+
+# ── Frontend lint (TypeScript) ──
+TS_FILES=$({ git diff --name-only HEAD -- 'frontend/*.ts' 'frontend/*.tsx'; git ls-files --others --exclude-standard -- 'frontend/*.ts' 'frontend/*.tsx'; } | sort -u)
+
+if [ -n "$TS_FILES" ]; then
+  if [ -f "frontend/node_modules/.bin/eslint" ]; then
+    if ! echo "$TS_FILES" | xargs frontend/node_modules/.bin/eslint >/tmp/claude-frontend-lint.log 2>&1; then
+      msg "⚠️ eslint lint 실패 — 자동 커밋 중단 (/tmp/claude-frontend-lint.log 확인)"
+      exit 0
+    fi
+  elif [ -f "frontend/tsconfig.json" ]; then
+    if ! (cd frontend && npx tsc --noEmit >/tmp/claude-frontend-lint.log 2>&1); then
+      msg "⚠️ tsc 타입 체크 실패 — 자동 커밋 중단 (/tmp/claude-frontend-lint.log 확인)"
+      exit 0
+    fi
   fi
 fi
 
