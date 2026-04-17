@@ -1,18 +1,17 @@
 # agentic-ai-guardrail
 
-## Architecture
-Full-stack application.
+## 아키텍처
+풀스택 애플리케이션.
 
-## Git Workflow
-- Never push directly to main/master
-- Use conventional commits: feat, fix, docs, refactor, test, chore
-- PR checklist: tests pass, lint pass, reviewer assigned
-- Never commit .env files or sensitive information
-- Never chain Bash commands with &&, ;, or | — always use separate tool calls
-- Commit format: `feat: msg` / `fix: msg` / `docs:` / `refactor:` / `test:` / `chore:`
-- Add `Co-Authored-By: Claude <noreply@anthropic.com>` to all commits
-- **커밋 메시지는 반드시 한글로 작성해주세요!**
-- **Please make sure to write the commit messages in Korean!**
+## Git 워크플로
+- main/master에 직접 push 금지
+- 컨벤셔널 커밋 사용: feat, fix, docs, refactor, test, chore
+- PR 체크리스트: 테스트 통과, lint 통과, 리뷰어 지정
+- .env 파일이나 민감 정보는 절대 커밋 금지
+- Bash 명령어를 &&, ;, | 로 체이닝하지 말 것 — 항상 개별 도구 호출 사용
+- 커밋 형식: `feat: 메시지` / `fix: 메시지` / `docs:` / `refactor:` / `test:` / `chore:`
+- 모든 커밋에 `Co-Authored-By: Claude <noreply@anthropic.com>` 추가
+- **커밋 메시지는 반드시 한글로 작성할 것!**
 
 ## 브랜치 전략
 ```
