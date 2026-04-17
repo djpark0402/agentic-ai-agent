@@ -365,7 +365,7 @@ fi
 </td></tr>
 
 <tr><td colspan="2">
-&nbsp;&nbsp;<span style="color:red">InstructionsLoaded (미사용) — CLAUDE.md 기본 로딩</span>
+&nbsp;&nbsp;<span style="color:red">InstructionsLoaded (미사용)</span> <span style="color:gray">— 압축 후 커스텀 규칙 재주입, 디렉토리별 규칙 분기</span>
 </td></tr>
 
 <tr><td colspan="2" align="center">▼</td></tr>
@@ -373,7 +373,7 @@ fi
 <tr><td colspan="2">
 <table width="100%" style="border:2px solid #333;">
 
-<tr><td><span style="color:red">UserPromptSubmit (미사용)</span></td></tr>
+<tr><td><span style="color:red">UserPromptSubmit (미사용)</span> <span style="color:gray">— 금지어 필터, 프롬프트 로깅, 입력 검증</span></td></tr>
 <tr><td><hr/></td></tr>
 
 <tr><td>
@@ -384,7 +384,7 @@ fi
 <b>② PreToolUse</b> ✅<br/>
 &nbsp;&nbsp;Edit/Write(**/.env) → exit 2 차단<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
-<span style="color:red">&nbsp;&nbsp;PermissionRequest (미사용)</span><br/>
+<span style="color:red">&nbsp;&nbsp;PermissionRequest (미사용)</span> <span style="color:gray">— npm/yarn 자동 승인, 사내 도구 자동 허용</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;▼<br/>
 <table width="90%" align="center" style="border:2px solid #0969da; background-color:#ddf4ff;">
@@ -406,12 +406,12 @@ fi
 &nbsp;&nbsp;→ *.py: ruff check<br/>
 &nbsp;&nbsp;→ *.ts: eslint<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
-<span style="color:red">&nbsp;&nbsp;PostToolUseFailure (미사용)</span><br/>
-<span style="color:red">&nbsp;&nbsp;PermissionDenied (미사용)</span><br/>
-<span style="color:red">&nbsp;&nbsp;SubagentStart / SubagentStop (미사용)</span><br/>
-<span style="color:red">&nbsp;&nbsp;TaskCreated / TaskCompleted (미사용)</span><br/>
-<span style="color:red">&nbsp;&nbsp;TeammateIdle (미사용)</span><br/>
-<span style="color:red">&nbsp;&nbsp;Elicitation / ElicitationResult (미사용)</span><br/>
+<span style="color:red">&nbsp;&nbsp;PostToolUseFailure (미사용)</span> <span style="color:gray">— 실패 로깅, 자동 재시도 트리거</span><br/>
+<span style="color:red">&nbsp;&nbsp;PermissionDenied (미사용)</span> <span style="color:gray">— auto 모드 거부 시 대체 명령 제안</span><br/>
+<span style="color:red">&nbsp;&nbsp;SubagentStart / SubagentStop (미사용)</span> <span style="color:gray">— 서브에이전트 실행 로깅, 결과 검증</span><br/>
+<span style="color:red">&nbsp;&nbsp;TaskCreated / TaskCompleted (미사용)</span> <span style="color:gray">— 작업 진행률 대시보드, Slack 알림</span><br/>
+<span style="color:red">&nbsp;&nbsp;TeammateIdle (미사용)</span> <span style="color:gray">— 팀원 유휴 시 다음 작업 자동 할당</span><br/>
+<span style="color:red">&nbsp;&nbsp;Elicitation / ElicitationResult (미사용)</span> <span style="color:gray">— MCP 서버 연동 시 자동 인증 처리</span><br/>
 
 </td></tr>
 </table>
@@ -429,22 +429,24 @@ fi
 &nbsp;&nbsp;→ decision: "block" → Claude 강제 재응답<br/>
 &nbsp;&nbsp;→ <b>"feat/pr-develop에 머지할까요?"</b> 질문<br/>
 <br/>
-<span style="color:red">&nbsp;&nbsp;StopFailure (미사용)</span>
+<span style="color:red">&nbsp;&nbsp;StopFailure (미사용)</span> <span style="color:gray">— API 오류 시 자동 재시도, 에러 리포트 생성</span>
 </td></tr>
 
 <tr><td><hr/></td></tr>
 
 <tr><td>
 <span style="color:red"><b>비동기 이벤트 (모두 미사용)</b></span><br/>
-<span style="color:red">&nbsp;&nbsp;ConfigChange / CwdChanged / FileChanged</span><br/>
-<span style="color:red">&nbsp;&nbsp;PreCompact / PostCompact</span><br/>
-<span style="color:red">&nbsp;&nbsp;Notification</span><br/>
-<span style="color:red">&nbsp;&nbsp;WorktreeCreate / WorktreeRemove</span>
+<span style="color:red">&nbsp;&nbsp;ConfigChange</span> <span style="color:gray">— 설정 변경 감사 로그, 무단 변경 차단</span><br/>
+<span style="color:red">&nbsp;&nbsp;CwdChanged</span> <span style="color:gray">— 디렉토리 이동 시 환경 변수 자동 전환 (direnv)</span><br/>
+<span style="color:red">&nbsp;&nbsp;FileChanged</span> <span style="color:gray">— .env 변경 감지, 설정 파일 hot-reload</span><br/>
+<span style="color:red">&nbsp;&nbsp;PreCompact / PostCompact</span> <span style="color:gray">— 압축 전 상태 백업, 압축 후 핵심 규칙 재주입</span><br/>
+<span style="color:red">&nbsp;&nbsp;Notification</span> <span style="color:gray">— Slack/Teams 알림 연동, 권한 요청 자동 응답</span><br/>
+<span style="color:red">&nbsp;&nbsp;WorktreeCreate / WorktreeRemove</span> <span style="color:gray">— 병렬 작업 브랜치 격리, 자동 정리</span>
 </td></tr>
 
 <tr><td><hr/></td></tr>
 
-<tr><td><span style="color:red">SessionEnd (미사용)</span></td></tr>
+<tr><td><span style="color:red">SessionEnd (미사용)</span> <span style="color:gray">— 세션 요약 리포트 생성, 작업 시간 기록</span></td></tr>
 
 </table>
 </td></tr>
