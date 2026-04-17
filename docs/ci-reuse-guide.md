@@ -304,7 +304,7 @@ fi
 | 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
 |:----------:|----------|:--------:|-------------------|
 | **PreCompact** | 압축 시작 전 | ❌ 미사용 | 압축 전 처리 불필요 |
-| **PostCompact** | 압축 완료 후 | ❌ 미사용 | 향후 압축 후 규칙 재주입(SessionStart matcher: "compact")에 활용 가능 |
+| **PostCompact** | 압축 완료 후 | ✅ 사용 | `post-compact.sh` — 핵심 규칙 재주입 (브랜치, 머지, PR, TDD, 한글 커밋) |
 
 ### 6-8. 알림 (Notifications) — 비동기
 
@@ -332,17 +332,17 @@ fi
 
 ```
 공식 Hook 이벤트: 총 23개
-├── ✅ 사용 중: 4개 (17%)
+├── ✅ 사용 중: 5개 (22%)
 │   ├── SessionStart  → session-start.sh (브랜치 자동 생성)
 │   ├── PreToolUse    → 인라인 command (.env 차단)
 │   ├── PostToolUse   → post-lint.sh (즉시 lint)
+│   ├── PostCompact   → post-compact.sh (압축 후 핵심 규칙 재주입)
 │   └── Stop          → auto-commit.sh (자동 커밋 + block 머지 알림)
 │
-└── ❌ 미사용: 19개 (83%)
+└── ❌ 미사용: 18개 (78%)
     ├── 현재 불필요: 15개 (단일 프로젝트, MCP 미사용 등)
-    └── 향후 활용 가능: 4개
+    └── 향후 활용 가능: 3개
         ├── UserPromptSubmit — 금지어 필터
-        ├── PostCompact — 압축 후 규칙 재주입
         ├── Notification — Slack 연동
         └── FileChanged — .env 변경 감지
 ```
@@ -439,7 +439,8 @@ fi
 <span style="color:red">&nbsp;&nbsp;ConfigChange</span> <span style="color:gray">— 설정 변경 감사 로그, 무단 변경 차단</span><br/>
 <span style="color:red">&nbsp;&nbsp;CwdChanged</span> <span style="color:gray">— 디렉토리 이동 시 환경 변수 자동 전환 (direnv)</span><br/>
 <span style="color:red">&nbsp;&nbsp;FileChanged</span> <span style="color:gray">— .env 변경 감지, 설정 파일 hot-reload</span><br/>
-<span style="color:red">&nbsp;&nbsp;PreCompact / PostCompact</span> <span style="color:gray">— 압축 전 상태 백업, 압축 후 핵심 규칙 재주입</span><br/>
+<span style="color:red">&nbsp;&nbsp;PreCompact (미사용)</span> <span style="color:gray">— 압축 전 상태 백업</span><br/>
+&nbsp;&nbsp;<b>PostCompact</b> ✅ <span style="color:gray">— post-compact.sh: 압축 후 핵심 규칙 재주입 (브랜치, 머지, PR, TDD)</span><br/>
 <span style="color:red">&nbsp;&nbsp;Notification</span> <span style="color:gray">— Slack/Teams 알림 연동, 권한 요청 자동 응답</span><br/>
 <span style="color:red">&nbsp;&nbsp;WorktreeCreate / WorktreeRemove</span> <span style="color:gray">— 병렬 작업 브랜치 격리, 자동 정리</span>
 </td></tr>
