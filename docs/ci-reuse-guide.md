@@ -15,7 +15,9 @@
 │   ├── session-start.sh    ← 🟢 그대로 사용 가능
 │   ├── auto-commit.sh      ← 🟡 lint 부분만 수정
 │   ├── post-lint.sh        ← 🟡 lint 도구에 맞게 수정
-│   └── post-compact.sh     ← 🟡 재주입 규칙 내용만 수정
+│   ├── post-compact.sh     ← 🟡 재주입 규칙 내용만 수정
+│   ├── check-branch.sh     ← 🟢 그대로 사용 가능
+│   └── check-merge.sh      ← 🟢 그대로 사용 가능
 └── agents/
     ├── team.md             ← 🔵 프로젝트마다 수정 필요
     ├── backend-agent.md    ← 🔵 기술 스택에 맞게 수정
@@ -236,6 +238,8 @@ fi
      □ hooks/auto-commit.sh — lint 섹션 수정 + chmod +x
      □ hooks/post-lint.sh — case 문 수정 + chmod +x
      □ hooks/post-compact.sh — 재주입 규칙 내용 수정 + chmod +x
+     □ hooks/check-branch.sh — 그대로 복사 + chmod +x
+     □ hooks/check-merge.sh — 그대로 복사 + chmod +x
      □ agents/ — 기술 스택에 맞게 재작성
 □ 4. CLAUDE.md 작성 — 아키텍처, 기술 스택 수정, 나머지는 복사
 □ 5. .github/PULL_REQUEST_TEMPLATE.md — 그대로 복사
@@ -270,9 +274,9 @@ fi
 
 | 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
 |:----------:|----------|:--------:|-------------------|
-| **PreToolUse** | 도구 실행 전 (차단 가능) | ✅ 사용 | `settings.json` 인라인 — Edit/Write(**/.env) 차단 (`exit 2`) |
+| **PreToolUse** | 도구 실행 전 (차단 가능) | ✅ 사용 | `check-branch.sh` — 보호 브랜치(main/develop/pr-develop) 파일 수정 차단 + `.env` 차단 (인라인) |
 | **PermissionRequest** | 권한 대화 상자 표시 | ❌ 미사용 | permissions deny/ask 규칙으로 충분. 향후 자동 승인 정책에 활용 가능 |
-| **PostToolUse** | 도구 실행 성공 후 | ✅ 사용 | `post-lint.sh` — Write/Edit 후 즉시 lint 검사 (ruff/eslint) |
+| **PostToolUse** | 도구 실행 성공 후 | ✅ 사용 | `post-lint.sh` — Write/Edit 후 즉시 lint + `check-merge.sh` — 머지 후 PR 질문 강제 (block) |
 | **PostToolUseFailure** | 도구 실행 실패 후 | ❌ 미사용 | 실패 시 별도 처리 없음. 향후 에러 로깅에 활용 가능 |
 | **PermissionDenied** | 자동 모드에서 거부 | ❌ 미사용 | auto 모드 미사용 (default 모드 운영) |
 
@@ -334,10 +338,10 @@ fi
 
 ```
 공식 Hook 이벤트: 총 23개
-├── ✅ 사용 중: 5개 (22%)
+├── ✅ 사용 중: 5개 (22%) — 7개 스크립트
 │   ├── SessionStart  → session-start.sh (브랜치 자동 생성)
-│   ├── PreToolUse    → 인라인 command (.env 차단)
-│   ├── PostToolUse   → post-lint.sh (즉시 lint)
+│   ├── PreToolUse    → check-branch.sh (보호 브랜치 차단) + 인라인 (.env 차단)
+│   ├── PostToolUse   → post-lint.sh (즉시 lint) + check-merge.sh (머지 후 PR 질문 강제)
 │   ├── PostCompact   → post-compact.sh (압축 후 핵심 규칙 재주입)
 │   └── Stop          → auto-commit.sh (자동 커밋 + block 머지 알림)
 │
@@ -384,6 +388,7 @@ fi
 <tr><td><br/>
 
 <b>② PreToolUse</b> ✅<br/>
+&nbsp;&nbsp;check-branch.sh — 보호 브랜치(main/develop/pr-develop) 파일 수정 차단<br/>
 &nbsp;&nbsp;Edit/Write(**/.env) → exit 2 차단<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
 <span style="color:red">&nbsp;&nbsp;PermissionRequest (미사용)</span> <span style="color:gray">— npm/yarn 자동 승인, 사내 도구 자동 허용</span><br/>
@@ -404,9 +409,10 @@ fi
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;▼<br/>
 <b>③ PostToolUse</b> ✅<br/>
-&nbsp;&nbsp;post-lint.sh 실행<br/>
-&nbsp;&nbsp;→ *.py: ruff check<br/>
-&nbsp;&nbsp;→ *.ts: eslint<br/>
+&nbsp;&nbsp;post-lint.sh — 파일 저장 직후 lint<br/>
+&nbsp;&nbsp;→ *.py: ruff check / *.ts: eslint<br/>
+&nbsp;&nbsp;check-merge.sh — pr-develop에서 git merge 감지 시 block<br/>
+&nbsp;&nbsp;→ <b>"develop으로 PR 생성할까요?"</b> 강제 질문<br/>
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
 <span style="color:red">&nbsp;&nbsp;PostToolUseFailure (미사용)</span> <span style="color:gray">— 실패 로깅, 자동 재시도 트리거</span><br/>
 <span style="color:red">&nbsp;&nbsp;PermissionDenied (미사용)</span> <span style="color:gray">— auto 모드 거부 시 대체 명령 제안</span><br/>

@@ -92,6 +92,18 @@ else API 인터페이스 변경 (양쪽 동기화)
     Claude -> Frontend : types.ts + api.ts 반영 (이후)
 end
 
+note over Claude #FFFFCC
+  **PreToolUse 훅 (check-branch.sh)**
+  Edit/Write 실행 전마다 현재 브랜치 확인
+  main/develop/pr-develop이면 exit 2로 차단
+  "세션 브랜치를 생성한 후 작업하세요"
+
+  **PostToolUse 훅 (check-merge.sh)**
+  Bash 실행 후 git merge 감지 시
+  pr-develop 브랜치면 block 반환
+  → "develop으로 PR 생성할까요?" 강제 질문
+end note
+
 Claude --> User : 작업 결과 응답
 
 == 3. Stop 훅 — 자동 커밋 + 머지 알림 ==
