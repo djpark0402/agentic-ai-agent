@@ -386,8 +386,21 @@ fi
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
 <span style="color:red">&nbsp;&nbsp;PermissionRequest (미사용)</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;도구 실행 (Edit, Write, Bash 등)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;▼<br/>
+<table width="90%" align="center" style="border:2px solid #0969da; background-color:#ddf4ff;">
+<tr><td>
+<b style="color:#0969da;">★ 실제 코드 작성 구간 (도구 실행)</b><br/>
+&nbsp;&nbsp;Claude가 이 단계에서 파일을 생성/수정합니다.<br/><br/>
+&nbsp;&nbsp;<b>Edit</b> — 기존 파일 수정 (backend/*.py, frontend/*.ts 등)<br/>
+&nbsp;&nbsp;<b>Write</b> — 새 파일 생성 (테스트 코드, 설정 파일 등)<br/>
+&nbsp;&nbsp;<b>Bash</b> — 명령 실행 (npm install, pytest, git 등)<br/>
+&nbsp;&nbsp;<b>Read/Grep/Glob</b> — 코드 탐색 (수정 없음)<br/><br/>
+&nbsp;&nbsp;<i>※ TDD 흐름: 테스트 Write → Bash(pytest 실패 확인) → Edit(실무 코드) → Bash(pytest 통과)</i><br/>
+&nbsp;&nbsp;<i>※ 한 턴에 여러 도구가 호출되면 ②→★→③ 이 반복됩니다</i>
+</td></tr>
+</table>
 &nbsp;&nbsp;&nbsp;&nbsp;│<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;▼<br/>
 <b>③ PostToolUse</b> ✅<br/>
 &nbsp;&nbsp;post-lint.sh 실행<br/>
 &nbsp;&nbsp;→ *.py: ruff check<br/>
