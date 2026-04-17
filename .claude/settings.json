@@ -31,6 +31,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-branch.sh",
+            "statusMessage": "브랜치 보호 검사 중..."
+          },
+          {
+            "type": "command",
             "if": "Edit(**/.env)|Write(**/.env)",
             "command": "echo '.env 파일은 수정할 수 없습니다. 사용자에게 직접 수정을 요청하세요.' >&2 && exit 2",
             "statusMessage": ".env 보호 검사 중..."
@@ -59,6 +64,17 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/post-lint.sh",
             "timeout": 30,
             "statusMessage": "파일 lint 검사 중..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-merge.sh",
+            "timeout": 10,
+            "statusMessage": "머지 감지 검사 중..."
           }
         ]
       }
