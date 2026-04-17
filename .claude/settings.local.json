@@ -1,22 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(curl *)",
       "Bash(npm install:*)",
       "Bash(npm run:*)",
-      "Bash(curl -s -N -X POST http://localhost:8000/api/chat -H \"Content-Type: application/json\" -d '{\"messages\":[{\"role\":\"user\",\"content\":\"안녕 한 문장으로\"}],\"system\":\"한국어로 답해\"}')",
-      "Bash(lsof -i :8000 -i :3000 -i :5173 -i :8080 -sTCP:LISTEN -t)",
-      "Bash(kill 32031 67138 67140 67158 71097 71102)",
-      "Bash(kill -9 32031)",
-      "Bash(lsof -i :8000 -i :3000 -i :5173 -i :8080 -sTCP:LISTEN)",
       "Bash(uvicorn app.main:app --reload --port 8000)",
       "Bash(pip show *)",
       "Bash(lsof *)",
-      "Bash(kill -9 84620)",
-      "Bash(kill 85537 *)",
-      "Bash(curl *)",
-      "Skill(update-config)",
+      "Bash(kill *)",
       "Bash(chmod +x *)",
+      "Bash(pkill -f *)",
       "Read(**/.env)",
       "Bash(bash .claude/hooks/auto-commit.sh)",
       "Bash(git stash *)",
@@ -24,36 +17,15 @@
       "Bash(git add *)",
       "Bash(git reset *)",
       "Bash(git commit *)",
-      "Bash(gh pr *)",
-      "Bash(git pull *)",
       "Bash(git branch *)",
       "Bash(git rebase *)",
       "Bash(git merge *)",
-      "Bash(pkill -f \"uvicorn app.main:app\")",
-      "Bash(pkill -f \"vite\")"
-    ],
-    "deny": [
-      "Edit(**/.env)",
-      "Write(**/.env)",
-      "Edit(./backend/.env)",
-      "Write(./backend/.env)"
-    ],
-    "ask": [
-      "Bash(git push:*)",
-      "Bash(git push)"
-    ]
-  },
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/auto-commit.sh",
-            "timeout": 60
-          }
-        ]
-      }
+      "Bash(git pull *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git status *)",
+      "Bash(gh pr *)",
+      "Skill(update-config)"
     ]
   }
 }
