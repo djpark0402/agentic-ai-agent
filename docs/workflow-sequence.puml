@@ -1,96 +1,235 @@
 @startuml 자동화 워크플로우 시퀀스
 
-title Claude Code 자동화 워크플로우
+title agentic-ai-agent 자동화 워크플로우\n(CLAUDE.md + hooks + settings.local.json + agents 기반)
 
-actor 사용자
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "사용자" as User
 participant "Claude Code" as Claude
-participant "SessionStart 훅" as SessionHook
+participant "SessionStart 훅\n(session-start.sh)" as SessionHook
 participant "Stop 훅\n(auto-commit.sh)" as StopHook
-database "Git" as Git
+participant "Backend 에이전트\n(Python/FastAPI)" as Backend
+participant "Frontend 에이전트\n(React/TypeScript)" as Frontend
+database "Git\n(로컬)" as Git
+database "GitHub\n(원격)" as GitHub
 
-== 세션 시작 ==
+== 1. 세션 시작 (SessionStart 훅 자동 실행) ==
 
-사용자 -> Claude : Claude Code 실행
+User -> Claude : Claude Code 실행
 activate Claude
-Claude -> SessionHook : SessionStart 훅 자동 실행
+
+Claude -> SessionHook : SessionStart 훅 트리거
 activate SessionHook
 
 SessionHook -> Git : feat/pr-develop 브랜치 존재 확인
+
 alt feat/pr-develop 없음
-    SessionHook -> Git : develop에서 feat/pr-develop 생성
+    SessionHook -> Git : develop에서\nfeat/pr-develop 생성
+    SessionHook --> Claude : "feat/pr-develop 브랜치 생성 (from develop)"
 end
-SessionHook -> Git : feat/pr-develop에서\nfeat/new-promt-YYYYMMDD-HHMMSS 생성
-SessionHook -> Git : 세션 브랜치로 checkout
-SessionHook --> Claude : "세션 브랜치 생성: feat/new-promt-*"
+
+alt develop 브랜치 없음
+    SessionHook --> Claude : "⚠️ develop 브랜치가 없습니다"
+    SessionHook --> SessionHook : exit 0
+end
+
+SessionHook -> Git : feat/pr-develop으로 checkout
+SessionHook -> Git : feat/new-promt-YYYYMMDD-HHMMSS\n브랜치 생성 + checkout
+SessionHook --> Claude : "세션 브랜치 생성:\nfeat/new-promt-YYYYMMDD-HHMMSS\n(from feat/pr-develop)"
 deactivate SessionHook
 
-== 프롬프트 턴 (반복) ==
+note over Claude
+  **Claude 필수 확인사항**
+  현재 브랜치가 feat/new-promt-* 인지 확인
+  아니면 새로 생성 후 이동
+  (pr-develop 직접 작업 절대 금지)
+end note
 
-사용자 -> Claude : 작업 요청 (코드 수정/기능 추가 등)
-activate Claude
+== 2. 프롬프트 턴 — 작업 수행 (반복) ==
 
-Claude -> Git : feat/new-promt-* 브랜치에서 파일 수정
-Claude --> 사용자 : 작업 결과 응답
+User -> Claude : 작업 요청
+
+note over Claude
+  **TDD 우선 개발 워크플로**
+  1. 실패하는 테스트 먼저 작성
+  2. 테스트 실행 → 실패 확인 (Red)
+  3. 최소한의 실무 코드 작성
+  4. 테스트 실행 → 통과 확인 (Green)
+  5. 리팩토링 (Refactor)
+end note
+
+alt Backend 작업 (backend/ 디렉토리)
+    Claude -> Backend : 작업 위임
+    activate Backend
+    Backend -> Backend : TDD: 테스트 작성 → 실무 코드
+    note right of Backend
+      - Python 3.11 + FastAPI
+      - Pydantic v2 타입 검증
+      - async def 기본
+      - ruff lint 통과 필수
+      - frontend/ 수정 금지
+      - .env 수정 금지
+    end note
+    Backend --> Claude : 작업 완료
+    deactivate Backend
+else Frontend 작업 (frontend/ 디렉토리)
+    Claude -> Frontend : 작업 위임
+    activate Frontend
+    Frontend -> Frontend : TDD: 테스트 작성 → 실무 코드
+    note right of Frontend
+      - TypeScript + React 18
+      - any 타입 금지
+      - 한글 IME 호환 확인
+      - eslint/tsc 통과 필수
+      - backend/ 수정 금지
+      - XSS 방지
+    end note
+    Frontend --> Claude : 작업 완료
+    deactivate Frontend
+else API 인터페이스 변경 (양쪽 동기화)
+    Claude -> Backend : schemas.py 수정 (먼저)
+    Claude -> Frontend : types.ts + api.ts 반영 (이후)
+end
+
+Claude --> User : 작업 결과 응답
+
+== 3. Stop 훅 — 자동 커밋 + 머지 알림 ==
 
 Claude -> StopHook : Stop 훅 자동 실행 (턴 종료)
 activate StopHook
 
-StopHook -> Git : 변경사항 확인
+StopHook -> Git : 변경사항 확인\n(git diff + untracked files)
+
 alt 변경사항 없음
     StopHook --> Claude : "변경사항 없음 — 자동 커밋 건너뜀"
 else 변경사항 있음
-    group Python lint
-        StopHook -> StopHook : .py 파일 수집
+
+    group Python lint (.py 파일)
+        StopHook -> StopHook : .py 파일 수집\n(tracked + untracked)
         alt ruff 사용 가능
             StopHook -> StopHook : ruff check
         else flake8 사용 가능
             StopHook -> StopHook : flake8
         else 폴백
-            StopHook -> StopHook : py_compile
+            StopHook -> StopHook : python3 -m py_compile
         end
     end
 
-    group Frontend lint
-        StopHook -> StopHook : .ts/.tsx 파일 수집
+    group Frontend lint (.ts/.tsx 파일)
+        StopHook -> StopHook : frontend/*.ts, *.tsx 파일 수집
         alt eslint 사용 가능
             StopHook -> StopHook : eslint
         else tsconfig.json 존재
-            StopHook -> StopHook : tsc --noEmit
+            StopHook -> StopHook : npx tsc --noEmit
         end
     end
 
     alt lint 실패
-        StopHook --> Claude : "⚠️ lint 실패 — 자동 커밋 중단"
+        StopHook --> Claude : "⚠️ lint 실패 — 자동 커밋 중단\n(/tmp/claude-lint.log 확인)"
     else lint 통과
-        StopHook -> Git : git add -A\n(.env 제외)
-        StopHook -> Git : git commit "chore: 세션 자동 커밋"
-        StopHook --> Claude : "✅ 로컬 자동 커밋 완료"
-        StopHook --> Claude : "📌 사용자에게 'feat/pr-develop에\n머지할까요?' 라고 반드시 물어보세요"
+        StopHook -> Git : git add -A
+        StopHook -> Git : git reset -- '**/.env' '.env'\n(.env 보호)
+        StopHook -> Git : git commit\n"chore: 세션 자동 커밋\n\nCo-Authored-By: Claude"
+
+        alt 커밋 성공
+            StopHook --> Claude : "✅ 세션 브랜치에 로컬 자동 커밋 완료"
+
+            alt 현재 브랜치가 feat/new-promt-*
+                StopHook --> Claude : "📌 사용자에게\n'feat/pr-develop에 머지할까요?'\n라고 반드시 물어보세요"
+            end
+        else 커밋 실패
+            StopHook --> Claude : "❌ 자동 커밋 실패"
+        end
     end
 end
 deactivate StopHook
 
-Claude --> 사용자 : **"feat/pr-develop에 머지할까요?"**
+note over Claude #FFcccc
+  **절대 생략 금지**
+  Stop 훅에서 머지 알림을 받으면
+  반드시 사용자에게 질문할 것
+end note
 
-== 사용자 승인 시: pr-develop 머지 ==
+Claude --> User : **"feat/pr-develop에 머지할까요?"**
 
-사용자 -> Claude : "네" (머지 승인)
+== 4. 사용자 승인 시: pr-develop 머지 ==
+
+User -> Claude : "네" (머지 승인)
 activate Claude
 
 Claude -> Git : git checkout feat/pr-develop
-Claude -> Git : git merge feat/new-promt-* --no-ff
+Claude -> Git : git merge feat/new-promt-*\n--no-ff -m "커밋 메시지"
 Claude -> Git : git branch -d feat/new-promt-*\n(세션 브랜치 삭제)
-Claude --> 사용자 : "머지 완료. **develop으로 PR 생성할까요?**"
 
-== 사용자 승인 시: develop PR 생성 ==
+note over Claude #FFcccc
+  **절대 생략 금지**
+  머지 완료 후 반드시
+  PR 생성 여부를 질문할 것
+end note
 
-사용자 -> Claude : "네" (PR 생성 승인)
+Claude --> User : "머지 완료.\n**develop으로 PR 생성할까요?**"
 
-Claude -> Git : feat/pr-develop을\ndevelop 기준으로 rebase\n(충돌 방지)
-Claude -> Git : git push origin feat/pr-develop
-Claude -> Git : gh pr create\n--base develop\n--head feat/pr-develop
-Claude --> 사용자 : "PR 생성 완료: #번호"
+== 5. 사용자 승인 시: develop PR 생성 ==
+
+User -> Claude : "네" (PR 생성 승인)
+
+Claude -> Git : git rebase develop\n(충돌 방지, PR 생성 전 필수)
+
+alt rebase 충돌 발생
+    Claude -> Git : 충돌 해결
+    Claude -> Git : git rebase --continue
+end
+
+Claude -> Git : git push origin feat/pr-develop\n(사용자 승인 필요 — permission: ask)
+Git -> GitHub : push
+
+Claude -> GitHub : gh pr create\n--base develop\n--head feat/pr-develop\n(PULL_REQUEST_TEMPLATE.md 사용)
+
+note right of GitHub
+  **PR 템플릿 체크리스트**
+  ☑ 변경 요약
+  ☑ 변경 유형 (feat/fix/docs...)
+  ☑ Python lint 통과
+  ☑ 타입 힌트 적절히 사용
+  ☑ 단위 테스트 작성 및 통과
+  ☑ .env 등 민감 정보 미포함
+  ☑ OWASP Top 10 취약점 확인
+  ☑ 테스트 방법
+end note
+
+Claude --> User : "PR 생성 완료: #번호\n(GitHub Copilot이 리뷰 예정)"
 
 deactivate Claude
+
+== 권한 정책 요약 (settings.local.json) ==
+
+note over Git, GitHub
+  **자동 허용 (allow)**
+  curl, npm, uvicorn, pip show, lsof, kill,
+  chmod, git stash/checkout/add/reset/commit/branch/rebase/merge,
+  gh pr, Read(.env)
+
+  **항상 사용자 확인 (ask)**
+  git push
+
+  **차단 (deny)**
+  Edit/Write(.env)
+end note
+
+== 브랜치 구조 ==
+
+note over Git
+  main (프로덕션)
+   └── develop (개발 통합)
+        └── feat/pr-develop (PR 준비용 통합)
+             └── feat/new-promt-* (세션 작업, 자동 생성/삭제)
+                  ├── feat/기능설명
+                  ├── fix/버그설명
+                  ├── docs/문서설명
+                  ├── refactor/리팩토링설명
+                  ├── test/테스트설명
+                  └── chore/설정설명
+end note
 
 @enduml
