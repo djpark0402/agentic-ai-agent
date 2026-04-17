@@ -10,9 +10,6 @@ BRANCH=$(git branch --show-current 2>/dev/null)
 # 변경사항 없으면 커밋 건너뛰되, 세션 브랜치 머지 알림은 전달
 if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
   msg "변경사항 없음 — 자동 커밋 건너뜀"
-  if echo "$BRANCH" | grep -q '^feat/session-'; then
-    msg "📌 현재 세션 브랜치($BRANCH)에서 작업 중입니다. 사용자에게 'feat/pr-develop에 머지할까요?' 라고 반드시 물어보세요."
-  fi
   exit 0
 fi
 
