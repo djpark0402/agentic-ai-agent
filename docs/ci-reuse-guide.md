@@ -349,72 +349,97 @@ fi
 
 ### 6-12. 수명주기 흐름도 (본 프로젝트 적용)
 
-```
-Claude Code 실행
-    │
-    ▼
-╔═══════════════════════════════════════════════════════╗
-║ ① SessionStart                                       ║
-║    session-start.sh 실행                              ║
-║    → develop → feat/pr-develop → feat/new-promt-*    ║
-╚═══════════════════╤═══════════════════════════════════╝
-    ┌───────────────┘
-    │   InstructionsLoaded (미사용) — CLAUDE.md 기본 로딩
-    ▼
-╔═══════════════════════════════════════════════════════╗
-║   UserPromptSubmit (미사용)                           ║
-╠═══════════════════════════════════════════════════════╣
-║                                                       ║
-║   ┌─── 에이전트 루프 (반복) ──────────────────────┐   ║
-║   │                                               │   ║
-║   │  ② PreToolUse ✅                              │   ║
-║   │     Edit/Write(**/.env) → exit 2 차단          │   ║
-║   │              │                                │   ║
-║   │     PermissionRequest (미사용)                 │   ║
-║   │              │                                │   ║
-║   │        도구 실행 (Edit, Write, Bash 등)        │   ║
-║   │              │                                │   ║
-║   │  ③ PostToolUse ✅                             │   ║
-║   │     post-lint.sh 실행                          │   ║
-║   │     → *.py: ruff check                        │   ║
-║   │     → *.ts: eslint                            │   ║
-║   │              │                                │   ║
-║   │     PostToolUseFailure (미사용)                │   ║
-║   │     PermissionDenied (미사용)                  │   ║
-║   │     SubagentStart/Stop (미사용)                │   ║
-║   │     TaskCreated/Completed (미사용)             │   ║
-║   │     Elicitation/Result (미사용)                │   ║
-║   │                                               │   ║
-║   └───────────────────────────────────────────────┘   ║
-║                                                       ║
-╠═══════════════════════════════════════════════════════╣
-║ ④ Stop ✅                                            ║
-║    auto-commit.sh 실행                                ║
-║    → Python lint (ruff → flake8 → py_compile)        ║
-║    → Frontend lint (eslint → tsc --noEmit)           ║
-║    → git add -A (.env 제외)                           ║
-║    → git commit                                       ║
-║    → decision: "block" → Claude 강제 재응답            ║
-║    → "feat/pr-develop에 머지할까요?" 질문              ║
-║                                                       ║
-║    StopFailure (미사용)                               ║
-╠═══════════════════════════════════════════════════════╣
-║   비동기 이벤트 (모두 미사용)                          ║
-║    ConfigChange / CwdChanged / FileChanged            ║
-║    PreCompact / PostCompact                           ║
-║    Notification                                       ║
-║    WorktreeCreate / WorktreeRemove                    ║
-╠═══════════════════════════════════════════════════════╣
-║   SessionEnd (미사용)                                 ║
-╚═══════════════════════════════════════════════════════╝
-    │
-    ▼ (머지 승인 시 — Claude 수동 수행, 훅 아님)
-    │
-    feat/pr-develop에 머지 + 세션 브랜치 삭제
-    │
-    ▼ (PR 승인 시)
-    │
-    rebase → push → gh pr create
-```
+> 미사용 이벤트는 <span style="color:red">빨간색</span>으로 표시됩니다.
+
+<table>
+<tr><td colspan="2" align="center"><b>Claude Code 실행</b></td></tr>
+<tr><td colspan="2" align="center">▼</td></tr>
+
+<tr><td colspan="2">
+<table width="100%" style="border:2px solid #333;">
+<tr><td><b>① SessionStart</b> ✅<br/>
+&nbsp;&nbsp;session-start.sh 실행<br/>
+&nbsp;&nbsp;→ develop → feat/pr-develop → feat/new-promt-*
+</td></tr>
+</table>
+</td></tr>
+
+<tr><td colspan="2">
+&nbsp;&nbsp;<span style="color:red">InstructionsLoaded (미사용) — CLAUDE.md 기본 로딩</span>
+</td></tr>
+
+<tr><td colspan="2" align="center">▼</td></tr>
+
+<tr><td colspan="2">
+<table width="100%" style="border:2px solid #333;">
+
+<tr><td><span style="color:red">UserPromptSubmit (미사용)</span></td></tr>
+<tr><td><hr/></td></tr>
+
+<tr><td>
+<table width="95%" align="center" style="border:1px dashed #666;">
+<tr><td align="center"><b>에이전트 루프 (반복)</b></td></tr>
+<tr><td><br/>
+
+<b>② PreToolUse</b> ✅<br/>
+&nbsp;&nbsp;Edit/Write(**/.env) → exit 2 차단<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br/>
+<span style="color:red">&nbsp;&nbsp;PermissionRequest (미사용)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;도구 실행 (Edit, Write, Bash 등)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br/>
+<b>③ PostToolUse</b> ✅<br/>
+&nbsp;&nbsp;post-lint.sh 실행<br/>
+&nbsp;&nbsp;→ *.py: ruff check<br/>
+&nbsp;&nbsp;→ *.ts: eslint<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;│<br/>
+<span style="color:red">&nbsp;&nbsp;PostToolUseFailure (미사용)</span><br/>
+<span style="color:red">&nbsp;&nbsp;PermissionDenied (미사용)</span><br/>
+<span style="color:red">&nbsp;&nbsp;SubagentStart / SubagentStop (미사용)</span><br/>
+<span style="color:red">&nbsp;&nbsp;TaskCreated / TaskCompleted (미사용)</span><br/>
+<span style="color:red">&nbsp;&nbsp;TeammateIdle (미사용)</span><br/>
+<span style="color:red">&nbsp;&nbsp;Elicitation / ElicitationResult (미사용)</span><br/>
+
+</td></tr>
+</table>
+</td></tr>
+
+<tr><td><hr/></td></tr>
+
+<tr><td>
+<b>④ Stop</b> ✅<br/>
+&nbsp;&nbsp;auto-commit.sh 실행<br/>
+&nbsp;&nbsp;→ Python lint (ruff → flake8 → py_compile)<br/>
+&nbsp;&nbsp;→ Frontend lint (eslint → tsc --noEmit)<br/>
+&nbsp;&nbsp;→ git add -A (.env 제외)<br/>
+&nbsp;&nbsp;→ git commit<br/>
+&nbsp;&nbsp;→ decision: "block" → Claude 강제 재응답<br/>
+&nbsp;&nbsp;→ <b>"feat/pr-develop에 머지할까요?"</b> 질문<br/>
+<br/>
+<span style="color:red">&nbsp;&nbsp;StopFailure (미사용)</span>
+</td></tr>
+
+<tr><td><hr/></td></tr>
+
+<tr><td>
+<span style="color:red"><b>비동기 이벤트 (모두 미사용)</b></span><br/>
+<span style="color:red">&nbsp;&nbsp;ConfigChange / CwdChanged / FileChanged</span><br/>
+<span style="color:red">&nbsp;&nbsp;PreCompact / PostCompact</span><br/>
+<span style="color:red">&nbsp;&nbsp;Notification</span><br/>
+<span style="color:red">&nbsp;&nbsp;WorktreeCreate / WorktreeRemove</span>
+</td></tr>
+
+<tr><td><hr/></td></tr>
+
+<tr><td><span style="color:red">SessionEnd (미사용)</span></td></tr>
+
+</table>
+</td></tr>
+
+<tr><td colspan="2" align="center">▼ (머지 승인 시 — Claude 수동 수행, 훅 아님)</td></tr>
+<tr><td colspan="2" align="center">feat/pr-develop에 머지 + 세션 브랜치 삭제</td></tr>
+<tr><td colspan="2" align="center">▼ (PR 승인 시)</td></tr>
+<tr><td colspan="2" align="center">rebase → push → gh pr create</td></tr>
+</table>
 
 > 전체 시퀀스 다이어그램은 `docs/workflow-sequence.puml`을 참고하세요.
