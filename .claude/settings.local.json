@@ -22,7 +22,9 @@
       "Bash(git stash *)",
       "Bash(git checkout *)",
       "Bash(git add *)",
-      "Bash(git reset *)"
+      "Bash(git reset *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)"
     ],
     "deny": [
       "Edit(**/.env)",
