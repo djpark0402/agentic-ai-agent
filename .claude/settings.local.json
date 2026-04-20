@@ -62,7 +62,8 @@
       "Read(//tmp/**)",
       "Bash(bash -n /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/check-branch.sh)",
       "Bash(bash -n /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/auto-commit.sh)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(bash -n .claude/hooks/session-start.sh .claude/hooks/check-branch.sh .claude/hooks/auto-commit.sh .claude/hooks/post-compact.sh)"
     ]
   }
 }

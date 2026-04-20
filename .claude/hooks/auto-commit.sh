@@ -110,8 +110,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 if git commit -m "$COMMIT_MSG" >/tmp/claude-auto-commit.log 2>&1; then
   SHA=$(git rev-parse --short HEAD)
 
-  # 세션 브랜치(feat/new-promt-*)에서 작업 중이면 block으로 Claude를 다시 깨워 머지 질문을 강제
-  if echo "$BRANCH" | grep -q '^feat/new-promt-'; then
+  # 세션 브랜치(feat/new-prompt-*)에서 작업 중이면 block으로 Claude를 다시 깨워 머지 질문을 강제
+  if echo "$BRANCH" | grep -q '^feat/new-prompt-'; then
     jq -n --arg branch "$BRANCH" --arg sha "$SHA" '{
       "decision": "block",
       "reason": ("✅ 세션 브랜치(" + $branch + ")에 로컬 자동 커밋 완료 (" + $sha + "). 사용자에��� 반드시 feat/pr-develop에 머지할까요? 라고 물어보세요.")
