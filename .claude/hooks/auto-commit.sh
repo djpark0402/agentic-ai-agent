@@ -75,8 +75,35 @@ if git diff --cached --quiet; then
   exit 0
 fi
 
-# ── 커밋 ──
-COMMIT_MSG="chore: 세션 자동 커밋
+# ── 커밋 메시지 생성: 카테고리 감지 + 파일 목록 요약 ──
+STAGED=$(git diff --cached --name-only | sort -u)
+COUNT=$(echo "$STAGED" | grep -c . || true)
+
+# 최상위 경로로 카테고리 감지 (순서 유지: backend, frontend, docs, hooks, ci, project)
+CATS=""
+echo "$STAGED" | grep -q '^backend/' && CATS="${CATS}+backend"
+echo "$STAGED" | grep -q '^frontend/' && CATS="${CATS}+frontend"
+echo "$STAGED" | grep -q '^docs/' && CATS="${CATS}+docs"
+echo "$STAGED" | grep -q '^\.claude/' && CATS="${CATS}+hooks"
+echo "$STAGED" | grep -q '^\.github/' && CATS="${CATS}+ci"
+# 루트/기타 파일이 있으면 project 추가 (CLAUDE.md, docker-compose.yml 등)
+if echo "$STAGED" | grep -qv '^\(backend/\|frontend/\|docs/\|\.claude/\|\.github/\)'; then
+  CATS="${CATS}+project"
+fi
+CATS=${CATS#+}          # 앞 '+' 제거
+[ -z "$CATS" ] && CATS="misc"
+
+# 파일 요약: basename 기준으로 앞 3개 + 나머지 개수
+FIRST_BASENAMES=$(echo "$STAGED" | head -3 | awk -F/ '{print $NF}' | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
+if [ "$COUNT" -gt 3 ]; then
+  FILE_SUMMARY="${FIRST_BASENAMES} 외 $((COUNT-3))건"
+else
+  FILE_SUMMARY="${FIRST_BASENAMES}"
+fi
+
+COMMIT_TITLE="chore(${CATS}): ${FILE_SUMMARY}"
+
+COMMIT_MSG="${COMMIT_TITLE}
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
