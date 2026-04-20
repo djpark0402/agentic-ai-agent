@@ -43,7 +43,20 @@
       "Bash(.venv/bin/pytest tests/test_conversations.py --tb=short)",
       "Bash(python3 -m json.tool)",
       "Bash(.venv/bin/pytest tests/test_conversations.py::TestConversationsAPI::test_get_messages_returns_empty_for_new_conversation -v --tb=long)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(.venv/bin/pytest tests/test_hmac_signing.py tests/test_conversations.py --tb=short)",
+      "Bash(xargs -I {} kill -TERM {})",
+      "Bash(.venv/bin/python3 *)",
+      "Bash(.venv/bin/python -c \"import FinanceDataReader as fdr; df=fdr.StockListing\\('KOSPI'\\); print\\(list\\(df.columns\\)[:15]\\); print\\(df.head\\(2\\).to_dict\\('records'\\)\\)\")",
+      "Bash(.venv/bin/python -c \"import certifi; print\\(certifi.where\\(\\)\\)\")",
+      "Bash(.venv/bin/python -c 'import certifi; print\\(certifi.where\\(\\)\\)')",
+      "Bash(SSL_CERT_FILE=$\\(.venv/bin/python -c 'import certifi; print\\(certifi.where\\(\\)\\)'\\) .venv/bin/python -c \"import FinanceDataReader as fdr; df=fdr.StockListing\\('KOSPI'\\); print\\(list\\(df.columns\\)[:15]\\)\")",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(.venv/bin/python -m py_compile app/main.py app/llm.py app/mcp_client.py mcp_servers/stock_server.py)",
+      "Bash(PYTHONUNBUFFERED=1 SSL_CERT_FILE=$\\(.venv/bin/python -c 'import certifi; print\\(certifi.where\\(\\)\\)'\\) .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/bin/pytest tests/ --tb=short)",
+      "Bash(.venv/bin/pytest tests/test_conversations.py::TestConversationsAPI::test_chat_with_conversation_id_persists_messages --tb=long)"
     ]
   }
 }

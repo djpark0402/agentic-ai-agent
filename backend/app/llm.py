@@ -39,11 +39,18 @@ def _build_payload_messages(messages: list[Message], system: str | None) -> list
 
 
 async def stream_events(
-    messages: list[Message],
+    messages: list[Message] | list[dict],
     system: str | None,
     model: str | None = None,
+    tools: list[dict] | None = None,
 ) -> AsyncIterator[dict]:
-    """Yield typed events: status | token | done."""
+    """Yield typed events: status | token | tool_calls | done.
+
+    messages는 Pydantic Message 또는 dict(OpenAI 호환) 모두 허용해 tool 루프에서
+    assistant(tool_calls)/tool 메시지를 그대로 전달할 수 있게 한다.
+    tools가 주어지면 요청에 포함하고, LLM이 tool_calls를 반환하면 누적해
+    {"type":"tool_calls","tool_calls":[...]}을 yield한 뒤 종료(호출측이 실행 후 재호출).
+    """
     # --- 기존 Solar(ChatUpstage) 스트리밍 호출 (주석 처리) ---
     # llm = ChatUpstage(
     #     model=model or DEFAULT_MODEL,
@@ -82,26 +89,56 @@ async def stream_events(
     import json as _json
 
     url = f"{BASE_URL.rstrip('/')}/chat/completions"
-    payload = {
+
+    # messages가 Pydantic이면 dict로 변환, dict이면 그대로 사용 (tool 루프용)
+    if messages and isinstance(messages[0], Message):
+        payload_messages = _build_payload_messages(messages, system)
+    else:
+        payload_messages = []
+        if system:
+            payload_messages.append({"role": "system", "content": system})
+        payload_messages.extend(messages)  # type: ignore[arg-type]
+
+    payload: dict = {
         "model": model or DEFAULT_MODEL,
-        "messages": _build_payload_messages(messages, system),
+        "messages": payload_messages,
         "stream": True,
     }
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+
+    # HMAC 서명은 실제 전송되는 raw body 바이트 기준으로 계산되어야 하므로
+    # 여기서 미리 직렬화해 두고 httpx에 content=bytes로 전달한다.
+    body_bytes = _json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
     yield {"type": "status", "stage": "thinking", "label": "생각하는 중..."}
 
-    headers = {}
-    if API_KEY:
+    headers = {"Content-Type": "application/json"}
+    if API_KEY and HMAC_SECRET:
+        headers.update(build_hmac_headers(body_bytes, API_KEY, HMAC_SECRET))
+    elif API_KEY:
         headers["Authorization"] = f"Bearer {API_KEY}"
-    if HMAC_SECRET:
-        headers.update(build_hmac_headers(payload, API_KEY, HMAC_SECRET))
 
+    print("=" * 80)
     print(f"[LLM REQUEST] POST {url}")
+    print("[LLM REQUEST HEADERS]")
+    for k, v in headers.items():
+        print(f"  {k}: {v}")
+    print(f"[LLM REQUEST BODY] (messages={len(payload['messages'])}턴)")
     print(_json.dumps(payload, ensure_ascii=False, indent=2))
 
     first_token_sent = False
+    full_reply = ""
+    # tool_calls를 index별로 누적 (OpenAI 스트리밍 규격: 인자가 토큰 단위로 쪼개져 옴)
+    tool_calls_acc: dict[int, dict] = {}
+    finish_reason: str | None = None
+    response_headers: dict[str, str] = {}
+    status_code = 0
     async with httpx.AsyncClient(timeout=60.0) as client:
-        async with client.stream("POST", url, json=payload, headers=headers) as resp:
+        async with client.stream("POST", url, content=body_bytes, headers=headers) as resp:
+            status_code = resp.status_code
+            response_headers = dict(resp.headers)
             resp.raise_for_status()
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "):
@@ -113,13 +150,50 @@ async def stream_events(
                 choices = chunk.get("choices") or []
                 if not choices:
                     continue
-                delta = choices[0].get("delta") or {}
+                choice0 = choices[0]
+                if choice0.get("finish_reason"):
+                    finish_reason = choice0["finish_reason"]
+                delta = choice0.get("delta") or {}
                 content = delta.get("content", "")
                 if content:
                     if not first_token_sent:
                         yield {"type": "status", "stage": "generating", "label": "응답 생성 중..."}
                         first_token_sent = True
+                    full_reply += content
                     yield {"type": "token", "content": content}
+                # tool_calls 누적
+                for tc_delta in delta.get("tool_calls") or []:
+                    idx = tc_delta.get("index", 0)
+                    slot = tool_calls_acc.setdefault(
+                        idx, {"id": "", "type": "function", "function": {"name": "", "arguments": ""}}
+                    )
+                    if tc_delta.get("id"):
+                        slot["id"] = tc_delta["id"]
+                    fn = tc_delta.get("function") or {}
+                    if fn.get("name"):
+                        slot["function"]["name"] = fn["name"]
+                    if fn.get("arguments"):
+                        slot["function"]["arguments"] += fn["arguments"]
+
+    print(f"[LLM RESPONSE] status={status_code} finish_reason={finish_reason}")
+    print("[LLM RESPONSE HEADERS]")
+    for k, v in response_headers.items():
+        print(f"  {k}: {v}")
+    print(f"[LLM RESPONSE BODY] (길이={len(full_reply)}자)")
+    print(full_reply)
+    if tool_calls_acc:
+        print(f"[LLM RESPONSE TOOL_CALLS] {len(tool_calls_acc)}건")
+        for idx, tc in sorted(tool_calls_acc.items()):
+            print(f"  [{idx}] id={tc['id']} name={tc['function']['name']} args={tc['function']['arguments']}")
+    print("=" * 80)
+
+    if tool_calls_acc:
+        # 호출측(main.py)이 이 리스트를 보고 MCP로 도구를 실행한 뒤 재호출
+        yield {
+            "type": "tool_calls",
+            "tool_calls": [tool_calls_acc[i] for i in sorted(tool_calls_acc)],
+        }
+        return
 
     yield {"type": "done"}
 
