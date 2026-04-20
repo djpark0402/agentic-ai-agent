@@ -27,7 +27,8 @@
       "Bash(gh pr *)",
       "Skill(update-config)",
       "Bash(git rm *)",
-      "Bash(git mv *)"
+      "Bash(git mv *)",
+      "Bash(git cherry-pick *)"
     ]
   }
 }
