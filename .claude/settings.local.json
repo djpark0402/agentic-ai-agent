@@ -57,7 +57,9 @@
       "Bash(.venv/bin/python *)",
       "Bash(.venv/bin/pytest tests/ --tb=short)",
       "Bash(.venv/bin/pytest tests/test_conversations.py::TestConversationsAPI::test_chat_with_conversation_id_persists_messages --tb=long)",
-      "Bash(bash -n /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/user-prompt-submit.sh)"
+      "Bash(bash -n /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/user-prompt-submit.sh)",
+      "Bash(cp /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/user-prompt-submit.sh /tmp/test-ups.sh)",
+      "Read(//tmp/**)"
     ]
   }
 }
