@@ -56,7 +56,8 @@
       "Bash(PYTHONUNBUFFERED=1 SSL_CERT_FILE=$\\(.venv/bin/python -c 'import certifi; print\\(certifi.where\\(\\)\\)'\\) .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
       "Bash(.venv/bin/python *)",
       "Bash(.venv/bin/pytest tests/ --tb=short)",
-      "Bash(.venv/bin/pytest tests/test_conversations.py::TestConversationsAPI::test_chat_with_conversation_id_persists_messages --tb=long)"
+      "Bash(.venv/bin/pytest tests/test_conversations.py::TestConversationsAPI::test_chat_with_conversation_id_persists_messages --tb=long)",
+      "Bash(bash -n /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/user-prompt-submit.sh)"
     ]
   }
 }
