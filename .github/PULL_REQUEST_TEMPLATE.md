@@ -15,20 +15,29 @@
 - [ ] build: 빌드 시스템/의존성 변경
 
 ## 체크리스트
-### 코드 품질
+### 코드 품질 (Backend / Python)
 - [ ] Python lint (ruff/flake8) 통과
 - [ ] 타입 힌트 적절히 사용
 - [ ] 불필요한 import/코드 제거
+
+### 코드 품질 (Frontend / TypeScript)
+- [ ] ESLint 통과 (해당 시)
+- [ ] `tsc --noEmit` 타입 체크 통과
+- [ ] `vite build` 빌드 성공
 
 ### 테스트
 - [ ] 단위 테스트 작성 및 통과
 - [ ] 기존 테스트 깨지지 않음 확인
 - [ ] edge case 테스트 포함
+- [ ] 인증/서명 로직 변경 시 `backend/tests/test_hmac_signing.py` 등 관련 테스트 확인
 
 ### 보안
 - [ ] `.env` 등 민감 정보 미포함
 - [ ] 입력값 검증 추가 (해당 시)
 - [ ] OWASP Top 10 취약점 확인
+- [ ] LLM/에이전트: API 키(Upstage 등) 하드코딩 없음
+- [ ] LLM/에이전트: 프롬프트 인젝션 방어 고려 (사용자 입력이 LLM에 전달되는 경우)
+- [ ] 엔드포인트 추가 시 CORS origin 설정 검토 (`backend/app/main.py`)
 
 ### 문서
 - [ ] 관련 문서 업데이트 (해당 시)
