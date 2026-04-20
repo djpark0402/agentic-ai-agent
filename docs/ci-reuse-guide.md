@@ -460,10 +460,48 @@ fi
 </table>
 </td></tr>
 
-<tr><td colspan="2" align="center">▼ (머지 승인 시 — Claude 수동 수행, 훅 아님)</td></tr>
-<tr><td colspan="2" align="center">feat/pr-develop에 머지 + 세션 브랜치 삭제</td></tr>
+<tr><td colspan="2" align="center">▼</td></tr>
+
+<tr><td colspan="2">
+<table width="100%" style="border:2px solid #0969da; background-color:#ddf4ff;">
+<tr><td>
+<b style="color:#0969da;">⑤ 세션 브랜치 → feat/pr-develop 머지 (Claude 수동 수행, 훅 아님)</b><br/><br/>
+
+&nbsp;&nbsp;<b>트리거:</b> Stop 훅의 <code>decision: block</code>이 Claude를 강제 재응답시켜<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;→ Claude가 <b>"feat/pr-develop에 머지할까요?"</b>라고 사용자에게 질문<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;→ 사용자 "네" 승인 시에만 아래 단계 실행<br/><br/>
+
+&nbsp;&nbsp;<b>머지 실행 (Claude가 Bash로 수동 수행):</b><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;1. <code>git checkout feat/pr-develop</code><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;2. <code>git merge --no-ff feat/new-promt-YYYYMMDD-HHMMSS</code><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;3. <code>git branch -d feat/new-promt-YYYYMMDD-HHMMSS</code> (세션 브랜치 삭제)<br/><br/>
+
+&nbsp;&nbsp;<i>※ 사용자가 "아니오" 응답 시 머지하지 않고 세션 브랜치 유지</i><br/>
+&nbsp;&nbsp;<i>※ git merge 실행 직후 PostToolUse(check-merge.sh)가 발동</i><br/>
+&nbsp;&nbsp;<i>&nbsp;&nbsp;&nbsp; → block으로 <b>"develop으로 PR 생성할까요?"</b> 질문 강제</i>
+</td></tr>
+</table>
+</td></tr>
+
 <tr><td colspan="2" align="center">▼ (PR 승인 시)</td></tr>
-<tr><td colspan="2" align="center">rebase → push → gh pr create</td></tr>
+
+<tr><td colspan="2">
+<table width="100%" style="border:2px solid #0969da; background-color:#ddf4ff;">
+<tr><td>
+<b style="color:#0969da;">⑥ feat/pr-develop → develop PR 생성 (Claude 수동 수행, 훅 아님)</b><br/><br/>
+
+&nbsp;&nbsp;<b>트리거:</b> 머지 직후 PostToolUse(check-merge.sh)가 block<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;→ Claude가 <b>"develop으로 PR 생성할까요?"</b>라고 질문<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;→ 사용자 "네" 승인 시에만 아래 단계 실행<br/><br/>
+
+&nbsp;&nbsp;<b>PR 생성 실행 (Claude가 Bash로 수동 수행):</b><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;1. <code>git fetch origin</code><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;2. <code>git rebase origin/develop</code> (충돌 방지를 위한 필수 rebase)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;3. <code>git push --force-with-lease origin feat/pr-develop</code> (permission <code>ask</code> — 사용자 승인)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;4. <code>gh pr create --base develop --head feat/pr-develop</code> (PULL_REQUEST_TEMPLATE.md 자동 적용)<br/>
+</td></tr>
+</table>
+</td></tr>
 </table>
 
 > 전체 시퀀스 다이어그램은 `docs/workflow-sequence.puml`을 참고하세요.
