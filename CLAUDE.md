@@ -1,7 +1,13 @@
 # agentic-ai-guardrail
 
 ## 아키텍처
-풀스택 애플리케이션.
+풀스택 애플리케이션 — Solar LLM 채팅 + 대화 영속화 + function calling 도구.
+- **Backend**: FastAPI(Python 3.12) / SQLModel / Alembic / asyncpg
+- **Frontend**: React 18 + TypeScript + Vite (nginx로 배포 시 SPA + `/api` 프록시)
+- **DB**: PostgreSQL 16 (대화·메시지 영속화, 슬라이딩 윈도우 20턴)
+- **LLM 연동**: OpenAI 호환 `/v1/chat/completions`, HMAC-SHA256 서명 헤더(`X-API-Key/X-Timestamp/X-Nonce/X-Signature`)
+- **도구**: `backend/app/tools.py`에 로컬 function 등록 (현재 `get_top_stocks` — FinanceDataReader)
+- **도커**: frontend(54084) / backend(54085) / postgres(54086) — `docker compose up -d --build`
 
 ## Git 워크플로
 - main/master 브랜치에 직접 commit/push 금지
@@ -27,14 +33,19 @@ main (프로덕션)
                 └── chore/설정설명
 ```
 
-### 세션 시작 시 (SessionStart 훅 자동 실행)
-1. `feat/pr-develop` 브랜치가 없으면 `develop`에서 자동 생성
-2. `feat/pr-develop`에서 `feat/new-promt-YYYYMMDD-HHMMSS` 세션 브랜치 자동 생성
-3. 세션 동안 해당 브랜치에서 작업 + Stop 훅으로 자동 커밋
+### 세션 브랜치 보장 (두 훅이 중복 방어)
+**UserPromptSubmit 훅** (`.claude/hooks/user-prompt-submit.sh`) — **주 보장 장치**
+- 사용자 프롬프트가 제출될 때마다 실행
+- 현재 브랜치가 `feat/new-promt-*`이면 exit 0 (아무것도 안 함)
+- 그 외라면 `feat/pr-develop` 기준으로 새 `feat/new-promt-YYYYMMDD-HHMMSS` 생성 + 전환
+- 머지로 세션 브랜치가 삭제된 뒤에도 다음 프롬프트가 들어오면 자동 복구
 
-### 프롬프트 제출 시 (UserPromptSubmit 훅 자동 실행)
-- 현재 브랜치가 `feat/new-promt-*`가 아니면 자동으로 세션 브랜치를 재생성해 전환
-- 세션 중 머지로 브랜치가 삭제된 뒤 다음 프롬프트가 들어와도 Claude가 직접 브랜치를 만들 필요 없음 (훅이 강제로 채움)
+**SessionStart 훅** (`.claude/hooks/session-start.sh`) — 초기 kickoff
+- Claude CLI를 처음 띄우는 순간(`matcher: startup`) 1회만 실행
+- `feat/pr-develop` 없으면 `develop`에서 생성
+- `feat/new-promt-*` 세션 브랜치를 선제 생성 (첫 프롬프트 이전 구간도 안전하게 커버)
+
+두 훅 모두 systemMessage + `hookSpecificOutput.additionalContext`로 현재 세션 브랜치를 Claude 컨텍스트에 주입. Claude는 브랜치 체크/생성을 수동으로 하지 않음.
 
 ### 세션 종료 / 작업 완료 시 (Claude 수동 수행, 사용자 승인 필요)
 1. 세션 브랜치의 커밋을 분석하여 작업 유형별로 분리
@@ -56,15 +67,25 @@ main (프로덕션)
 - `build/` : 빌드 시스템
 
 ## 자동화 정책 (hooks + permissions)
-- **SessionStart 훅**: 세션 시작 시 `feat/pr-develop` → `feat/new-promt-*` 세션 브랜치 자동 생성
-- **UserPromptSubmit 훅**: 사용자 프롬프트 제출 시마다 현재 브랜치가 `feat/new-promt-*`가 아니면 자동 재생성 (머지 후 세션 브랜치 삭제 상태에서 다음 프롬프트가 와도 강제 복구)
-- **Stop 훅 자동 커밋**: 매 프롬프트 턴이 끝나면 `.claude/hooks/auto-commit.sh`가 실행되어 python lint(ruff→flake8→py_compile 순) 및 frontend lint(eslint→tsc --noEmit 순) 통과 시 변경사항을 로컬에 자동 커밋합니다. lint 실패 시 커밋은 중단됩니다. merge 후 feat/new-promt-* 작업 브랜치는 삭제하세요.
-- **원격 push는 항상 사용자 승인 필요**: `git push`는 permission `ask`로 설정되어 있습니다. 로컬 커밋 후 push가 필요하면 반드시 "지금 push 할까요?"라고 사용자에게 먼저 물어보세요.
-- **`.env` 파일은 read 전용**: Write/Edit는 permission `deny`로 차단되어 있습니다. `.env` 편집이 필요하면 사용자에게 직접 수정을 요청하세요.
-- **merge/PR 시 반드시 사용자 승인**: `feat/pr-develop`는 develop 브랜치에 merge 전 rebase 실행 하십시요.`feat/pr-develop`에 merge 하거나 `develop`에 PR 보낼 때 반드시 사용자에게 먼저 확인을 받으세요.
-- **PreToolUse 훅**: `.env` 파일 Edit/Write 시도 시 자동 차단 (exit 2)
-- **PostToolUse 훅**: Write/Edit 후 즉시 lint 검사 실행 (`post-lint.sh`)
-- **PostCompact 훅**: 컨텍스트 압축 후 핵심 규칙 자동 재주입 (`post-compact.sh`) — 브랜치 규칙, 머지 알림, PR 절차, TDD 등
+
+### 브랜치 관리
+- **SessionStart 훅** (`session-start.sh`): CLI 시작 시 1회 — pr-develop 보장 + 세션 브랜치 선제 생성
+- **UserPromptSubmit 훅** (`user-prompt-submit.sh`): 매 프롬프트 — 세션 브랜치 아니면 강제 재생성 (주 보장 장치)
+- **PreToolUse 훅** (`check-branch.sh`): Edit/Write 직전 — main/develop/pr-develop이면 exit 2로 차단 (방어선)
+
+### 커밋/머지/푸시
+- **Stop 훅** (`auto-commit.sh`): 매 프롬프트 턴 종료 시 lint(ruff→flake8→py_compile, eslint→tsc --noEmit) 통과 후 자동 커밋. lint 실패 시 커밋 중단. 커밋 완료 후 "feat/pr-develop에 머지할까요?" 질문을 Claude에게 강제.
+- **PostToolUse 훅** (`check-merge.sh`): `git merge` 감지 시 "develop으로 PR 생성할까요?" 질문 강제.
+- **PostToolUse 훅** (`post-lint.sh`): Write/Edit 직후 즉시 lint 검사.
+- **원격 push는 항상 사용자 승인 필요** — `git push`는 permission `ask`. 푸시 전에 "지금 push 할까요?" 질문.
+- **merge/PR은 항상 사용자 승인** — pr-develop에 머지하거나 develop으로 PR 생성 전 반드시 확인. PR 생성 전 pr-develop은 develop 기준으로 rebase 필수 (충돌 방지).
+
+### 보안
+- **`.env`는 read 전용** — `Edit(**/.env)` / `Write(**/.env)`는 permission `deny`. 수정 필요 시 사용자에게 직접 요청.
+- **PreToolUse 보조 차단**: `.env` 경로 Edit/Write 시 인라인 훅으로도 exit 2.
+
+### 컨텍스트 관리
+- **PostCompact 훅** (`post-compact.sh`): 컨텍스트 압축 후 핵심 규칙 재주입 (브랜치·머지·PR·TDD·한글 커밋 등).
 
 ## Claude 필수 행동 규칙 (절대 생략 금지)
 
@@ -91,3 +112,14 @@ main (프로덕션)
 - 새 기능이나 버그 수정 시 항상 **실패하는 테스트를 먼저 작성**하고, 해당 테스트가 실제로 실패하는지 확인한 뒤, 그 테스트를 통과시키는 최소한의 실무 코드를 작성해 반영합니다.
 - 테스트 없이 실무 코드를 먼저 작성하지 마세요. (red → green → refactor)
 - 각 프롬프트 세션에서 코드를 작성한 뒤 python lint를 수동으로도 한 번 확인하고, 통과하면 Stop 훅이 자동으로 커밋을 생성합니다.
+- Backend 테스트: `cd backend && .venv/bin/pytest` (conftest의 `DATABASE_URL`은 로컬 postgres 사용)
+- Frontend 타입체크: `cd frontend && npx tsc --noEmit`
+
+## 로컬 function-calling 도구
+`backend/app/tools.py`에 등록된 도구는 LLM이 `tool_choice:auto`로 자동 호출 가능.
+- **새 도구 추가 절차:**
+  1. `tools.py`에 async 함수 구현
+  2. `TOOL_SCHEMAS`에 OpenAI JSON Schema 형식으로 등록
+  3. `TOOL_FUNCTIONS`에 name → callable 매핑 추가
+- **트리거**: `main.py`의 키워드 조건 (`코스피`/`코스닥`/`주식`/`시가총액`/`주가` 등) 충족 시 tools 주입. 조건 없이 항상 주입하려면 `main.py`의 tools_schema 분기 제거.
+- 구현 예: `get_top_stocks(market, by, n)` — FinanceDataReader 기반 KOSPI/KOSDAQ 상위 종목
