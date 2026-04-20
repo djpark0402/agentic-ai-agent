@@ -30,7 +30,11 @@
       "Bash(git mv *)",
       "Bash(git cherry-pick *)",
       "Bash(git fetch *)",
-      "Bash(python3 -m py_compile backend/app/models.py backend/app/db.py backend/alembic/env.py backend/alembic/versions/0001_initial_conversations_messages.py)"
+      "Bash(python3 -m py_compile backend/app/models.py backend/app/db.py backend/alembic/env.py backend/alembic/versions/0001_initial_conversations_messages.py)",
+      "Bash(docker info *)",
+      "Bash(docker compose *)",
+      "Bash(pip3 show *)",
+      "Bash(.venv/bin/pip install *)"
     ]
   }
 }
