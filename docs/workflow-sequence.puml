@@ -8,7 +8,7 @@ skinparam ParticipantPadding 10
 actor "사용자" as User
 participant "Claude Code" as Claude
 participant "<color:red><b>SessionStart</b></color> 훅\n(session-start.sh)" as SessionHook
-participant "<color:red><b>UserPromptSubmit</b></color> 훅\n(user-prompt-submit.sh)" as PromptHook
+participant "<color:red><b>PreToolUse</b></color> 훅\n(check-branch.sh)" as PreHook
 participant "<color:red><b>Stop</b></color> 훅\n(auto-commit.sh)" as StopHook
 participant "Backend 에이전트\n(Python/FastAPI)" as Backend
 participant "Frontend 에이전트\n(React/TypeScript)" as Frontend
@@ -41,28 +41,20 @@ SessionHook --> Claude : systemMessage + additionalContext\n"세션 브랜치 �
 deactivate SessionHook
 
 note over Claude #E3F2FD
-  **역할 분담**
-  · <color:red><b>SessionStart</b></color> = CLI 최초 기동의 초기 kickoff
-  · <color:red><b>UserPromptSubmit</b></color> = 매 프롬프트마다 세션 브랜치 강제 보장 (주 장치)
-  Claude는 브랜치 체크/생성을 수동으로 하지 않음 — 훅이 담당.
+  **세션 브랜치 생성 정책 (지연 생성)**
+  · <color:red><b>SessionStart</b></color> = CLI 최초 기동 시 1회 — 초기 세션 브랜치 선제 생성
+  · <color:red><b>PreToolUse</b></color> = 실제 Edit/Write 직전 — pr-develop이면 세션 브랜치 자동 생성·전환
+  탐색/질문만 하는 프롬프트는 브랜치를 만들지 않음 (빈 브랜치 방지).
+  Claude는 브랜치 체크/생성을 수동으로 하지 않음.
 end note
 
 == 2. 프롬프트 턴 — 작업 수행 (반복) ==
 
 User -> Claude : 작업 요청 (프롬프트 제출)
-
-Claude -> PromptHook : <color:red><b>UserPromptSubmit</b></color> 훅 자동 실행
-activate PromptHook
-PromptHook -> Git : 현재 브랜치 조회
-
-alt 이미 feat/new-promt-*
-    PromptHook --> PromptHook : exit 0 (무변경)
-else 세션 브랜치 아님\n(머지 후 삭제 / 다른 브랜치)
-    PromptHook -> Git : feat/pr-develop 준비\n(없으면 develop에서 생성)
-    PromptHook -> Git : feat/new-promt-YYYYMMDD-HHMMSS\n신규 생성 + checkout
-    PromptHook --> Claude : systemMessage + additionalContext\n"세션 브랜치 재생성: feat/new-promt-..."
-end
-deactivate PromptHook
+note over Claude
+  탐색/질문만이면 Edit/Write 없음 → PreToolUse 훅 발동 X
+  → 세션 브랜치 변화 없음 (현재 브랜치 그대로)
+end note
 
 note over Claude
   **TDD 우선 개발 워크플로**
@@ -107,10 +99,12 @@ else API 인터페이스 변경 (양쪽 동기화)
 end
 
 note over Claude #FFFFCC
-  **<color:red><b>PreToolUse</b></color> 훅 (check-branch.sh)**
-  Edit/Write 실행 전마다 현재 브랜치 확인
-  main/develop/pr-develop이면 exit 2로 차단
-  "세션 브랜치를 생성한 후 작업하세요"
+  **<color:red><b>PreToolUse</b></color> 훅 (check-branch.sh) — 지연 생성**
+  Edit/Write 직전 현재 브랜치 판단:
+  · feat/new-promt-* → exit 0 (그대로 허용)
+  · feat/pr-develop → 새 세션 브랜치 자동 생성·전환 후 허용
+  · main/master/develop → exit 2 (차단)
+  · .claude/ 경로는 예외 (어디서든 허용)
 
   **<color:red><b>PostToolUse</b></color> 훅 (check-merge.sh)**
   Bash 실행 후 git merge 감지 시

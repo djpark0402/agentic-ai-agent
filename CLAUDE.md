@@ -33,19 +33,17 @@ main (프로덕션)
                 └── chore/설정설명
 ```
 
-### 세션 브랜치 보장 (두 훅이 중복 방어)
-<span style="color:red">**UserPromptSubmit**</span> 훅 (`.claude/hooks/user-prompt-submit.sh`) — **주 보장 장치**
-- 사용자 프롬프트가 제출될 때마다 실행
-- 현재 브랜치가 `feat/new-promt-*`이면 exit 0 (아무것도 안 함)
-- 그 외라면 `feat/pr-develop` 기준으로 새 `feat/new-promt-YYYYMMDD-HHMMSS` 생성 + 전환
-- 머지로 세션 브랜치가 삭제된 뒤에도 다음 프롬프트가 들어오면 자동 복구
+### 세션 브랜치 생성 정책 (지연 생성)
+- <span style="color:red">**SessionStart**</span> 훅 (`.claude/hooks/session-start.sh`) — CLI 최초 기동 시 1회
+  - `feat/pr-develop` 없으면 `develop`에서 생성
+  - 첫 세션 브랜치(`feat/new-promt-YYYYMMDD-HHMMSS`) 선제 생성 (탐색/질문만 해도 안전한 시작점 확보)
+- <span style="color:red">**PreToolUse**</span> 훅 (`.claude/hooks/check-branch.sh`) — **실제 Edit/Write 직전 지연 생성**
+  - 현재 `feat/new-promt-*` → 그대로 허용 (exit 0)
+  - 현재 `feat/pr-develop` → **새 세션 브랜치 자동 생성 후 전환 → Edit 허용**
+  - 현재 `main` / `master` / `develop` → 차단 (exit 2, 사용자가 pr-develop으로 이동해야 함)
+  - `.claude/` 경로 편집은 어디서든 허용 (훅·설정 변경 목적)
 
-<span style="color:red">**SessionStart**</span> 훅 (`.claude/hooks/session-start.sh`) — 초기 kickoff
-- Claude CLI를 처음 띄우는 순간(`matcher: startup`) 1회만 실행
-- `feat/pr-develop` 없으면 `develop`에서 생성
-- `feat/new-promt-*` 세션 브랜치를 선제 생성 (첫 프롬프트 이전 구간도 안전하게 커버)
-
-두 훅 모두 systemMessage + `hookSpecificOutput.additionalContext`로 현재 세션 브랜치를 Claude 컨텍스트에 주입. Claude는 브랜치 체크/생성을 수동으로 하지 않음.
+**핵심**: 머지로 세션 브랜치가 사라진 뒤 사용자가 질문·탐색만 해도 빈 브랜치를 만들지 않고, 실제 파일 수정이 필요한 순간에만 세션 브랜치가 생성됩니다. Claude는 브랜치 체크/생성을 수동으로 하지 않음.
 
 ### 세션 종료 / 작업 완료 시 (Claude 수동 수행, 사용자 승인 필요)
 1. 세션 브랜치의 커밋을 분석하여 작업 유형별로 분리
@@ -69,9 +67,8 @@ main (프로덕션)
 ## 자동화 정책 (hooks + permissions)
 
 ### 브랜치 관리
-- <span style="color:red">**SessionStart**</span> 훅 (`session-start.sh`): CLI 시작 시 1회 — pr-develop 보장 + 세션 브랜치 선제 생성
-- <span style="color:red">**UserPromptSubmit**</span> 훅 (`user-prompt-submit.sh`): 매 프롬프트 — 세션 브랜치 아니면 강제 재생성 (주 보장 장치)
-- <span style="color:red">**PreToolUse**</span> 훅 (`check-branch.sh`): Edit/Write 직전 — main/develop/pr-develop이면 exit 2로 차단 (방어선)
+- <span style="color:red">**SessionStart**</span> 훅 (`session-start.sh`): CLI 시작 시 1회 — pr-develop 보장 + 초기 세션 브랜치 생성
+- <span style="color:red">**PreToolUse**</span> 훅 (`check-branch.sh`): Edit/Write 직전 — pr-develop이면 세션 브랜치 자동 생성, main/master/develop이면 exit 2 차단 (지연 생성 전략)
 
 ### 커밋/머지/푸시
 - <span style="color:red">**Stop**</span> 훅 (`auto-commit.sh`): 매 프롬프트 턴 종료 시 lint(ruff→flake8→py_compile, eslint→tsc --noEmit) 통과 후 자동 커밋. lint 실패 시 커밋 중단. 커밋 완료 후 "feat/pr-develop에 머지할까요?" 질문을 Claude에게 강제.
@@ -99,13 +96,17 @@ main (프로덕션)
 
 ### 3. 전체 흐름 요약 (매 턴마다 체크)
 ```
-프롬프트 제출 → UserPromptSubmit 훅이 feat/new-promt-* 강제 보장
-  → 작업 수행 (Claude는 브랜치 체크/생성 수동으로 하지 않음)
-  → Stop 훅: lint 통과 → 자동 커밋
-  → "feat/pr-develop에 머지할까요?" 질문
-  → 승인 시: 머지 + 세션 브랜치 삭제
-  → "develop으로 PR 생성할까요?" 질문
-  → 승인 시: rebase → push → PR 생성
+프롬프트 제출
+  ↓
+(탐색/질문만이면 브랜치 변화 없음 — 빈 세션 브랜치 생성 안 함)
+  ↓
+실제 Edit/Write 발생 시 PreToolUse 훅이 세션 브랜치 자동 생성/보장
+  ↓
+작업 수행 → Stop 훅: lint 통과 → 자동 커밋
+  ↓
+"feat/pr-develop에 머지할까요?" 질문 → 승인 시 머지 + 세션 브랜치 삭제
+  ↓
+"develop으로 PR 생성할까요?" 질문 → 승인 시 rebase → push → PR 생성
 ```
 
 ## 개발 워크플로 (TDD 우선)
