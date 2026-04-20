@@ -15,7 +15,7 @@ CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 cd "${CWD:-$(git rev-parse --show-toplevel 2>/dev/null)}" || exit 0
 
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-SESSION_BRANCH="feat/new-promt-${TIMESTAMP}"
+SESSION_BRANCH="feat/new-prompt-${TIMESTAMP}"
 
 # feat/pr-develop 브랜치가 없으면 develop에서 생성
 if ! git rev-parse --verify feat/pr-develop >/dev/null 2>&1; then

@@ -6,7 +6,7 @@
 # 정책 (2026-04-20 갱신):
 #   · feat/pr-develop → 세션 브랜치를 자동 생성·전환 후 Edit 허용 (지연 생성)
 #   · main / master / develop → 차단 (exit 2). 사용자가 명시적으로 느려져야 하는 곳.
-#   · feat/new-promt-* → 그대로 허용
+#   · feat/new-prompt-* → 그대로 허용
 #   · .claude/ 경로 편집은 어디서든 허용 (훅 설정 변경 등)
 #
 # 이 전략으로 "프롬프트 제출 시점"이 아니라 "실제 Edit/Write가 필요한 시점"
@@ -29,13 +29,13 @@ if echo "$FILE_PATH" | grep -q '\.claude/'; then
 fi
 
 case "$BRANCH" in
-  feat/new-promt-*)
+  feat/new-prompt-*)
     exit 0
     ;;
   feat/pr-develop)
     # 지연 생성: 현재 pr-develop이라면 Edit 직전에 새 세션 브랜치로 전환
     TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-    SESSION_BRANCH="feat/new-promt-${TIMESTAMP}"
+    SESSION_BRANCH="feat/new-prompt-${TIMESTAMP}"
     if git checkout -b "$SESSION_BRANCH" >/dev/null 2>&1; then
       # systemMessage만 출력 (exit 0으로 tool 실행 허용)
       jq -n --arg branch "$SESSION_BRANCH" '{
@@ -43,7 +43,7 @@ case "$BRANCH" in
       }'
       exit 0
     else
-      echo "세션 브랜치 생성 실패 — 수동으로 feat/new-promt-* 브랜치를 만들어주세요." >&2
+      echo "세션 브랜치 생성 실패 — 수동으로 feat/new-prompt-* 브랜치를 만들어주세요." >&2
       exit 2
     fi
     ;;

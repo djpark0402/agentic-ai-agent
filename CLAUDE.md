@@ -24,7 +24,7 @@
 main (프로덕션)
  └── develop (개발 통합)
       └── feat/pr-develop (PR 준비용 통합 브랜치)
-           └── feat/new-promt-YYYYMMDD-HHMMSS (매 세션 작업 브랜치, 자동 생성, pr-develop에 merge 시 반드시 사용자 승인 필요, merge후 삭제)
+           └── feat/new-prompt-YYYYMMDD-HHMMSS (매 세션 작업 브랜치, 자동 생성, pr-develop에 merge 시 반드시 사용자 승인 필요, merge후 삭제)
                 ├── feat/기능설명 (기능별 분리 브랜치)
                 ├── fix/버그설명
                 ├── docs/문서설명
@@ -36,9 +36,9 @@ main (프로덕션)
 ### 세션 브랜치 생성 정책 (지연 생성)
 - <span style="color:red">**SessionStart**</span> 훅 (`.claude/hooks/session-start.sh`) — CLI 최초 기동 시 1회
   - `feat/pr-develop` 없으면 `develop`에서 생성
-  - 첫 세션 브랜치(`feat/new-promt-YYYYMMDD-HHMMSS`) 선제 생성 (탐색/질문만 해도 안전한 시작점 확보)
+  - 첫 세션 브랜치(`feat/new-prompt-YYYYMMDD-HHMMSS`) 선제 생성 (탐색/질문만 해도 안전한 시작점 확보)
 - <span style="color:red">**PreToolUse**</span> 훅 (`.claude/hooks/check-branch.sh`) — **실제 Edit/Write 직전 지연 생성**
-  - 현재 `feat/new-promt-*` → 그대로 허용 (exit 0)
+  - 현재 `feat/new-prompt-*` → 그대로 허용 (exit 0)
   - 현재 `feat/pr-develop` → **새 세션 브랜치 자동 생성 후 전환 → Edit 허용**
   - 현재 `main` / `master` / `develop` → 차단 (exit 2, 사용자가 pr-develop으로 이동해야 함)
   - `.claude/` 경로 편집은 어디서든 허용 (훅·설정 변경 목적)

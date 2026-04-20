@@ -39,7 +39,7 @@ CLAUDE.md                   ← 🔵 프로젝트마다 수정 필요
 ## 1. 🟢 그대로 복사하는 파일
 
 ### `.claude/hooks/session-start.sh`
-> 세션 시작 시 `feat/pr-develop → feat/new-promt-*` 브랜치 자동 생성
+> 세션 시작 시 `feat/pr-develop → feat/new-prompt-*` 브랜치 자동 생성
 
 프로젝트에 관계없이 동일하게 동작합니다. 브랜치 전략(develop → pr-develop → session)이
 동일하다면 수정 없이 복사하세요.
@@ -162,7 +162,7 @@ fi
 
 **그대로 복사하는 섹션:**
 - Git 워크플로
-- 브랜치 전략 (develop → pr-develop → new-promt-*)
+- 브랜치 전략 (develop → pr-develop → new-prompt-*)
 - 자동화 정책
 - Claude 필수 행동 규칙
 
@@ -260,7 +260,7 @@ fi
 
 | 공식 이벤트 | 발생 시점 | 사용 여부 | 본 프로젝트 적용 내용 |
 |:----------:|----------|:--------:|-------------------|
-| **SessionStart** | 세션 시작/재개 | ✅ 사용 | `session-start.sh` — feat/pr-develop → feat/new-promt-* 브랜치 자동 생성 |
+| **SessionStart** | 세션 시작/재개 | ✅ 사용 | `session-start.sh` — feat/pr-develop → feat/new-prompt-* 브랜치 자동 생성 |
 | **InstructionsLoaded** | CLAUDE.md/rules 로드 | ❌ 미사용 | CLAUDE.md가 기본 로딩되므로 별도 훅 불필요 |
 | **SessionEnd** | 세션 종료 | ❌ 미사용 | 종료 시 특별한 처리 없음 (자동 커밋은 Stop에서 처리) |
 
@@ -365,7 +365,7 @@ fi
 <table width="100%" style="border:2px solid #333;">
 <tr><td><b>① SessionStart</b> ✅<br/>
 &nbsp;&nbsp;session-start.sh 실행<br/>
-&nbsp;&nbsp;→ develop → feat/pr-develop → feat/new-promt-*
+&nbsp;&nbsp;→ develop → feat/pr-develop → feat/new-prompt-*
 </td></tr>
 </table>
 </td></tr>
@@ -473,8 +473,8 @@ fi
 
 &nbsp;&nbsp;<b>머지 실행 (Claude가 Bash로 수동 수행):</b><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;1. <code>git checkout feat/pr-develop</code><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;2. <code>git merge --no-ff feat/new-promt-YYYYMMDD-HHMMSS</code><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;3. <code>git branch -d feat/new-promt-YYYYMMDD-HHMMSS</code> (세션 브랜치 삭제)<br/><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;2. <code>git merge --no-ff feat/new-prompt-YYYYMMDD-HHMMSS</code><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;3. <code>git branch -d feat/new-prompt-YYYYMMDD-HHMMSS</code> (세션 브랜치 삭제)<br/><br/>
 
 &nbsp;&nbsp;<i>※ 사용자가 "아니오" 응답 시 머지하지 않고 세션 브랜치 유지</i><br/>
 &nbsp;&nbsp;<i>※ git merge 실행 직후 PostToolUse(check-merge.sh)가 발동</i><br/>

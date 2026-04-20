@@ -36,8 +36,8 @@ alt develop 브랜치 없음
 end
 
 SessionHook -> Git : feat/pr-develop으로 checkout
-SessionHook -> Git : feat/new-promt-YYYYMMDD-HHMMSS\n브랜치 생성 + checkout
-SessionHook --> Claude : systemMessage + additionalContext\n"세션 브랜치 생성: feat/new-promt-...\n(feat/pr-develop에서 직접 작업 금지)"
+SessionHook -> Git : feat/new-prompt-YYYYMMDD-HHMMSS\n브랜치 생성 + checkout
+SessionHook --> Claude : systemMessage + additionalContext\n"세션 브랜치 생성: feat/new-prompt-...\n(feat/pr-develop에서 직접 작업 금지)"
 deactivate SessionHook
 
 note over Claude #E3F2FD
@@ -101,7 +101,7 @@ end
 note over Claude #FFFFCC
   **<color:red><b>PreToolUse</b></color> 훅 (check-branch.sh) — 지연 생성**
   Edit/Write 직전 현재 브랜치 판단:
-  · feat/new-promt-* → exit 0 (그대로 허용)
+  · feat/new-prompt-* → exit 0 (그대로 허용)
   · feat/pr-develop → 새 세션 브랜치 자동 생성·전환 후 허용
   · main/master/develop → exit 2 (차단)
   · .claude/ 경로는 예외 (어디서든 허용)
@@ -155,7 +155,7 @@ else 변경사항 있음
         alt 커밋 성공
             StopHook --> Claude : "✅ 세션 브랜치에 로컬 자동 커밋 완료"
 
-            alt 현재 브랜치가 feat/new-promt-*
+            alt 현재 브랜치가 feat/new-prompt-*
                 StopHook --> Claude : "📌 사용자에게\n'feat/pr-develop에 머지할까요?'\n라고 반드시 물어보세요"
             end
         else 커밋 실패
@@ -179,8 +179,8 @@ User -> Claude : "네" (머지 승인)
 activate Claude
 
 Claude -> Git : git checkout feat/pr-develop
-Claude -> Git : git merge feat/new-promt-*\n--no-ff -m "커밋 메시지"
-Claude -> Git : git branch -d feat/new-promt-*\n(세션 브랜치 삭제)
+Claude -> Git : git merge feat/new-prompt-*\n--no-ff -m "커밋 메시지"
+Claude -> Git : git branch -d feat/new-prompt-*\n(세션 브랜치 삭제)
 
 note over Claude #FFFFCC
   **<color:red><b>PostToolUse</b></color> 훅 (check-merge.sh)**
@@ -247,7 +247,7 @@ note over Claude
   핵심 규칙을 Claude 컨텍스트에 재주입합니다.
 
   재주입 내용:
-  - 브랜치 규칙 (feat/new-promt-* 필수)
+  - 브랜치 규칙 (feat/new-prompt-* 필수)
   - 머지 알림 필수 (절대 생략 금지)
   - PR 생성 절차 (rebase → push → gh pr create)
   - TDD 우선, 한글 커밋, .env 수정 금지
@@ -297,7 +297,7 @@ note over Git
   main (프로덕션)
    └── develop (개발 통합)
         └── feat/pr-develop (PR 준비용 통합)
-             └── feat/new-promt-* (세션 작업, 자동 생성/삭제)
+             └── feat/new-prompt-* (세션 작업, 자동 생성/삭제)
                   ├── feat/기능설명
                   ├── fix/버그설명
                   ├── docs/문서설명

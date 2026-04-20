@@ -25,7 +25,7 @@ jq -n --arg branch "$BRANCH" '{
       "## 브랜치 규칙\n" +
       "- 현재 브랜치: " + $branch + "\n" +
       "- feat/pr-develop에서 직접 작업 절대 금지\n" +
-      "- 반드시 feat/new-promt-* 세션 브랜치에서만 작업할 것\n\n" +
+      "- 반드시 feat/new-prompt-* 세션 브랜치에서만 작업할 것\n\n" +
 
       "## Stop 훅 머지 알림\n" +
       "- 자동 커밋 후 block 알림이 오면 반드시 사용자에게 feat/pr-develop에 머지할까요? 질문\n" +
