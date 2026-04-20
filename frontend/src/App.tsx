@@ -49,16 +49,11 @@ export default function App() {
     }
   }
 
-  async function newChat() {
-    try {
-      const conv = await createConversation(sessionId, "새 대화");
-      setConversations([conv, ...conversations]);
-      setActiveId(conv.id);
-      setMessages([]);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
+  function newChat() {
+    // 빈 대화를 미리 만들지 않음 — 첫 메시지 전송 시점에 그 내용으로 제목을 지어 생성
+    setActiveId(null);
+    setMessages([]);
+    setError(null);
   }
 
   async function removeChat(id: string) {
