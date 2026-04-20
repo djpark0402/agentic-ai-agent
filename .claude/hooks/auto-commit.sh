@@ -22,6 +22,18 @@ if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --other
   exit 0
 fi
 
+# ── 안전망: 커밋 직전 pr-develop이면 세션 브랜치로 자동 분기 ──
+# PreToolUse(Edit|Write) 매처를 우회한 Bash 기반 파일 수정 + .claude/ 예외 편집이
+# pr-develop에 남는 것을 막는다. (SessionStart에서 세션 브랜치를 더 이상 만들지 않기 때문)
+if [ "$BRANCH" = "feat/pr-develop" ]; then
+  TS=$(date +"%Y%m%d-%H%M%S")
+  NEW_SESSION="feat/new-prompt-${TS}"
+  if git checkout -b "$NEW_SESSION" >/dev/null 2>&1; then
+    BRANCH="$NEW_SESSION"
+    echo "{\"systemMessage\":\"pr-develop에 변경사항 감지 → 세션 브랜치 자동 생성 후 커밋: ${NEW_SESSION}\"}"
+  fi
+fi
+
 # ── Python lint ──
 PY_FILES=$({ git diff --name-only HEAD -- '*.py'; git ls-files --others --exclude-standard -- '*.py'; } | sort -u)
 

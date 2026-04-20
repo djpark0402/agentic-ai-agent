@@ -33,17 +33,25 @@ main (프로덕션)
                 └── chore/설정설명
 ```
 
-### 세션 브랜치 생성 정책 (지연 생성)
-- <span style="color:red">**SessionStart**</span> 훅 (`.claude/hooks/session-start.sh`) — CLI 최초 기동 시 1회
-  - `feat/pr-develop` 없으면 `develop`에서 생성
-  - 첫 세션 브랜치(`feat/new-prompt-YYYYMMDD-HHMMSS`) 선제 생성 (탐색/질문만 해도 안전한 시작점 확보)
-- <span style="color:red">**PreToolUse**</span> 훅 (`.claude/hooks/check-branch.sh`) — **실제 Edit/Write 직전 지연 생성**
-  - 현재 `feat/new-prompt-*` → 그대로 허용 (exit 0)
-  - 현재 `feat/pr-develop` → **새 세션 브랜치 자동 생성 후 전환 → Edit 허용**
-  - 현재 `main` / `master` / `develop` → 차단 (exit 2, 사용자가 pr-develop으로 이동해야 함)
-  - `.claude/` 경로 편집은 어디서든 허용 (훅·설정 변경 목적)
+### 세션 브랜치 생성 정책 (순수 지연 생성)
+세션 브랜치(`feat/new-prompt-YYYYMMDD-HHMMSS`)는 **실제로 필요한 이벤트가 발생할 때만** 만들어집니다. SessionStart는 세션 브랜치를 **만들지 않습니다**.
 
-**핵심**: 머지로 세션 브랜치가 사라진 뒤 사용자가 질문·탐색만 해도 빈 브랜치를 만들지 않고, 실제 파일 수정이 필요한 순간에만 세션 브랜치가 생성됩니다. Claude는 브랜치 체크/생성을 수동으로 하지 않음.
+- <span style="color:red">**SessionStart**</span> 훅 (`session-start.sh`) — CLI 최초 기동 시 1회
+  - `feat/pr-develop`이 없으면 `develop`에서 생성
+  - `feat/pr-develop`으로 체크아웃
+  - **세션 브랜치는 만들지 않음** (통합 브랜치 준비까지만)
+
+- <span style="color:red">**PreToolUse**</span> 훅 (`check-branch.sh`) — **Edit/Write 직전 지연 생성 (주 경로)**
+  - `feat/new-prompt-*` → 그대로 허용
+  - `feat/pr-develop` → 새 세션 브랜치 자동 생성·전환 → Edit 허용
+  - `main` / `master` / `develop` → exit 2 차단
+  - `.claude/` 경로는 어디서든 허용 (훅·설정 변경 목적)
+
+- <span style="color:red">**Stop**</span> 훅 (`auto-commit.sh`) — **커밋 직전 안전망**
+  - 커밋 시점에 `feat/pr-develop`에 변경사항이 있으면 (Bash 기반 파일 수정 / `.claude/` 편집으로 PreToolUse를 우회한 경우) 세션 브랜치로 자동 분기한 뒤 커밋
+  - 즉 "pr-develop에 직접 커밋되는" 경우가 없음
+
+**핵심**: 질문·탐색만 하는 턴은 브랜치 변화 0. 실제 파일 수정이 발생해야만 세션 브랜치가 생성됩니다. Claude는 브랜치 체크/생성을 수동으로 하지 않음.
 
 ### 세션 종료 / 작업 완료 시 (Claude 수동 수행, 사용자 승인 필요)
 1. 세션 브랜치의 커밋을 분석하여 작업 유형별로 분리

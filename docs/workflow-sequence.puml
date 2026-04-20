@@ -35,17 +35,16 @@ alt develop 브랜치 없음
     SessionHook --> SessionHook : exit 0
 end
 
-SessionHook -> Git : feat/pr-develop으로 checkout
-SessionHook -> Git : feat/new-prompt-YYYYMMDD-HHMMSS\n브랜치 생성 + checkout
-SessionHook --> Claude : systemMessage + additionalContext\n"세션 브랜치 생성: feat/new-prompt-...\n(feat/pr-develop에서 직접 작업 금지)"
+SessionHook -> Git : feat/pr-develop으로 checkout (세션 브랜치는 만들지 않음)
+SessionHook --> Claude : systemMessage + additionalContext\n"현재 브랜치: feat/pr-develop.\n세션 브랜치는 Edit/Write 시 PreToolUse가 자동 생성."
 deactivate SessionHook
 
 note over Claude #E3F2FD
-  **세션 브랜치 생성 정책 (지연 생성)**
-  · <color:red><b>SessionStart</b></color> = CLI 최초 기동 시 1회 — 초기 세션 브랜치 선제 생성
-  · <color:red><b>PreToolUse</b></color> = 실제 Edit/Write 직전 — pr-develop이면 세션 브랜치 자동 생성·전환
-  탐색/질문만 하는 프롬프트는 브랜치를 만들지 않음 (빈 브랜치 방지).
-  Claude는 브랜치 체크/생성을 수동으로 하지 않음.
+  **세션 브랜치 생성 정책 (순수 지연 생성)**
+  · <color:red><b>SessionStart</b></color> = 통합 브랜치 준비만 (세션 브랜치 미생성)
+  · <color:red><b>PreToolUse</b></color> = Edit/Write 직전 — pr-develop이면 세션 브랜치 자동 생성·전환 (주 경로)
+  · <color:red><b>Stop</b></color> = 커밋 직전 안전망 — pr-develop에 변경 있으면 세션 브랜치 분기
+  탐색/질문만 하는 프롬프트는 브랜치 변화 X (빈 브랜치 방지).
 end note
 
 == 2. 프롬프트 턴 — 작업 수행 (반복) ==
@@ -124,6 +123,14 @@ StopHook -> Git : 변경사항 확인\n(git diff + untracked files)
 alt 변경사항 없음
     StopHook --> Claude : "변경사항 없음 — 자동 커밋 건너뜀"
 else 변경사항 있음
+
+    note right of StopHook #FFF8E1
+      **커밋 직전 안전망**
+      현재 브랜치가 feat/pr-develop이면
+      (Bash 파일 수정이나 .claude/ 예외 편집으로
+       PreToolUse를 우회한 경우)
+      feat/new-prompt-YYYYMMDD-HHMMSS 자동 분기 후 커밋
+    end note
 
     group Python lint (.py 파일)
         StopHook -> StopHook : .py 파일 수집\n(tracked + untracked)
