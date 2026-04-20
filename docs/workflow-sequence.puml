@@ -8,18 +8,19 @@ skinparam ParticipantPadding 10
 actor "사용자" as User
 participant "Claude Code" as Claude
 participant "SessionStart 훅\n(session-start.sh)" as SessionHook
+participant "UserPromptSubmit 훅\n(user-prompt-submit.sh)" as PromptHook
 participant "Stop 훅\n(auto-commit.sh)" as StopHook
 participant "Backend 에이전트\n(Python/FastAPI)" as Backend
 participant "Frontend 에이전트\n(React/TypeScript)" as Frontend
 database "Git\n(로컬)" as Git
 database "GitHub\n(원격)" as GitHub
 
-== 1. 세션 시작 (SessionStart 훅 자동 실행) ==
+== 1. 세션 시작 (SessionStart 훅 자동 실행 — CLI 최초 기동 시 1회) ==
 
 User -> Claude : Claude Code 실행
 activate Claude
 
-Claude -> SessionHook : SessionStart 훅 트리거
+Claude -> SessionHook : SessionStart(startup) 훅 트리거
 activate SessionHook
 
 SessionHook -> Git : feat/pr-develop 브랜치 존재 확인
@@ -36,19 +37,32 @@ end
 
 SessionHook -> Git : feat/pr-develop으로 checkout
 SessionHook -> Git : feat/new-promt-YYYYMMDD-HHMMSS\n브랜치 생성 + checkout
-SessionHook --> Claude : "세션 브랜치 생성:\nfeat/new-promt-YYYYMMDD-HHMMSS\n(from feat/pr-develop)"
+SessionHook --> Claude : systemMessage + additionalContext\n"세션 브랜치 생성: feat/new-promt-...\n(feat/pr-develop에서 직접 작업 금지)"
 deactivate SessionHook
 
-note over Claude
-  **Claude 필수 확인사항**
-  현재 브랜치가 feat/new-promt-* 인지 확인
-  아니면 새로 생성 후 이동
-  (pr-develop 직접 작업 절대 금지)
+note over Claude #E3F2FD
+  **역할 분담**
+  · SessionStart = CLI 최초 기동의 초기 kickoff
+  · UserPromptSubmit = 매 프롬프트마다 세션 브랜치 강제 보장 (주 장치)
+  Claude는 브랜치 체크/생성을 수동으로 하지 않음 — 훅이 담당.
 end note
 
 == 2. 프롬프트 턴 — 작업 수행 (반복) ==
 
-User -> Claude : 작업 요청
+User -> Claude : 작업 요청 (프롬프트 제출)
+
+Claude -> PromptHook : UserPromptSubmit 훅 자동 실행
+activate PromptHook
+PromptHook -> Git : 현재 브랜치 조회
+
+alt 이미 feat/new-promt-*
+    PromptHook --> PromptHook : exit 0 (무변경)
+else 세션 브랜치 아님\n(머지 후 삭제 / 다른 브랜치)
+    PromptHook -> Git : feat/pr-develop 준비\n(없으면 develop에서 생성)
+    PromptHook -> Git : feat/new-promt-YYYYMMDD-HHMMSS\n신규 생성 + checkout
+    PromptHook --> Claude : systemMessage + additionalContext\n"세션 브랜치 재생성: feat/new-promt-..."
+end
+deactivate PromptHook
 
 note over Claude
   **TDD 우선 개발 워크플로**
@@ -243,6 +257,29 @@ note over Claude
   - 머지 알림 필수 (절대 생략 금지)
   - PR 생성 절차 (rebase → push → gh pr create)
   - TDD 우선, 한글 커밋, .env 수정 금지
+end note
+
+== 7. 애플리케이션 런타임 참고 (git 워크플로 외) ==
+
+note over Backend, GitHub #F1F8E9
+  **Backend 주요 구조**
+  · FastAPI + SQLModel + Alembic + asyncpg (PostgreSQL 16)
+  · 대화/메시지 영속화 (conversations / messages 테이블)
+  · 슬라이딩 윈도우 20턴 (DB에서 최근 N개만 LLM에 전달)
+  · LLM 호출: OpenAI 호환 /v1/chat/completions + HMAC 서명
+    (X-API-Key / X-Timestamp / X-Nonce / X-Signature)
+  · 로컬 function calling: backend/app/tools.py
+    (예: get_top_stocks — FinanceDataReader)
+
+  **Frontend 주요 구조**
+  · React 18 + TS + Vite, 사이드바(대화 목록/새 채팅/삭제/전환)
+  · 개발: localhost:5173 (vite --host)
+  · 도커: nginx가 SPA + /api → backend:8000 프록시
+
+  **Docker Compose (프로덕션 스타일)**
+  · frontend(54084) → backend(54085) → postgres(54086)
+  · backend entrypoint: alembic upgrade head → uvicorn
+  · docker-compose up -d --build
 end note
 
 == 권한 정책 요약 (settings.json + settings.local.json) ==
