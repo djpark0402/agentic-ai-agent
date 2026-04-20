@@ -7,19 +7,20 @@ skinparam ParticipantPadding 10
 
 actor "사용자" as User
 participant "Claude Code" as Claude
-participant "SessionStart 훅\n(session-start.sh)" as SessionHook
-participant "Stop 훅\n(auto-commit.sh)" as StopHook
+participant "<color:red><b>SessionStart</b></color> 훅\n(session-start.sh)" as SessionHook
+participant "<color:red><b>PreToolUse</b></color> 훅\n(check-branch.sh)" as PreHook
+participant "<color:red><b>Stop</b></color> 훅\n(auto-commit.sh)" as StopHook
 participant "Backend 에이전트\n(Python/FastAPI)" as Backend
 participant "Frontend 에이전트\n(React/TypeScript)" as Frontend
 database "Git\n(로컬)" as Git
 database "GitHub\n(원격)" as GitHub
 
-== 1. 세션 시작 (SessionStart 훅 자동 실행) ==
+== 1. 세션 시작 (<color:red><b>SessionStart</b></color> 훅 자동 실행 — CLI 최초 기동 시 1회) ==
 
 User -> Claude : Claude Code 실행
 activate Claude
 
-Claude -> SessionHook : SessionStart 훅 트리거
+Claude -> SessionHook : <color:red><b>SessionStart</b></color>(startup) 훅 트리거
 activate SessionHook
 
 SessionHook -> Git : feat/pr-develop 브랜치 존재 확인
@@ -36,19 +37,24 @@ end
 
 SessionHook -> Git : feat/pr-develop으로 checkout
 SessionHook -> Git : feat/new-promt-YYYYMMDD-HHMMSS\n브랜치 생성 + checkout
-SessionHook --> Claude : "세션 브랜치 생성:\nfeat/new-promt-YYYYMMDD-HHMMSS\n(from feat/pr-develop)"
+SessionHook --> Claude : systemMessage + additionalContext\n"세션 브랜치 생성: feat/new-promt-...\n(feat/pr-develop에서 직접 작업 금지)"
 deactivate SessionHook
 
-note over Claude
-  **Claude 필수 확인사항**
-  현재 브랜치가 feat/new-promt-* 인지 확인
-  아니면 새로 생성 후 이동
-  (pr-develop 직접 작업 절대 금지)
+note over Claude #E3F2FD
+  **세션 브랜치 생성 정책 (지연 생성)**
+  · <color:red><b>SessionStart</b></color> = CLI 최초 기동 시 1회 — 초기 세션 브랜치 선제 생성
+  · <color:red><b>PreToolUse</b></color> = 실제 Edit/Write 직전 — pr-develop이면 세션 브랜치 자동 생성·전환
+  탐색/질문만 하는 프롬프트는 브랜치를 만들지 않음 (빈 브랜치 방지).
+  Claude는 브랜치 체크/생성을 수동으로 하지 않음.
 end note
 
 == 2. 프롬프트 턴 — 작업 수행 (반복) ==
 
-User -> Claude : 작업 요청
+User -> Claude : 작업 요청 (프롬프트 제출)
+note over Claude
+  탐색/질문만이면 Edit/Write 없음 → PreToolUse 훅 발동 X
+  → 세션 브랜치 변화 없음 (현재 브랜치 그대로)
+end note
 
 note over Claude
   **TDD 우선 개발 워크플로**
@@ -93,12 +99,14 @@ else API 인터페이스 변경 (양쪽 동기화)
 end
 
 note over Claude #FFFFCC
-  **PreToolUse 훅 (check-branch.sh)**
-  Edit/Write 실행 전마다 현재 브랜치 확인
-  main/develop/pr-develop이면 exit 2로 차단
-  "세션 브랜치를 생성한 후 작업하세요"
+  **<color:red><b>PreToolUse</b></color> 훅 (check-branch.sh) — 지연 생성**
+  Edit/Write 직전 현재 브랜치 판단:
+  · feat/new-promt-* → exit 0 (그대로 허용)
+  · feat/pr-develop → 새 세션 브랜치 자동 생성·전환 후 허용
+  · main/master/develop → exit 2 (차단)
+  · .claude/ 경로는 예외 (어디서든 허용)
 
-  **PostToolUse 훅 (check-merge.sh)**
+  **<color:red><b>PostToolUse</b></color> 훅 (check-merge.sh)**
   Bash 실행 후 git merge 감지 시
   pr-develop 브랜치면 block 반환
   → "develop으로 PR 생성할까요?" 강제 질문
@@ -106,9 +114,9 @@ end note
 
 Claude --> User : 작업 결과 응답
 
-== 3. Stop 훅 — 자동 커밋 + 머지 알림 ==
+== 3. <color:red><b>Stop</b></color> 훅 — 자동 커밋 + 머지 알림 ==
 
-Claude -> StopHook : Stop 훅 자동 실행 (턴 종료)
+Claude -> StopHook : <color:red><b>Stop</b></color> 훅 자동 실행 (턴 종료)
 activate StopHook
 
 StopHook -> Git : 변경사항 확인\n(git diff + untracked files)
@@ -159,7 +167,7 @@ deactivate StopHook
 
 note over Claude #FFcccc
   **절대 생략 금지**
-  Stop 훅에서 머지 알림을 받으면
+  <color:red><b>Stop</b></color> 훅에서 머지 알림을 받으면
   반드시 사용자에게 질문할 것
 end note
 
@@ -175,7 +183,7 @@ Claude -> Git : git merge feat/new-promt-*\n--no-ff -m "커밋 메시지"
 Claude -> Git : git branch -d feat/new-promt-*\n(세션 브랜치 삭제)
 
 note over Claude #FFFFCC
-  **PostToolUse 훅 (check-merge.sh)**
+  **<color:red><b>PostToolUse</b></color> 훅 (check-merge.sh)**
   위 git merge 실행 직후 자동 block 발동
   → "develop으로 PR 생성할까요?"\n    질문 강제 (훅이 Claude 응답 유도)
 end note
@@ -231,7 +239,7 @@ Claude --> User : "PR 생성 완료: #번호\n(GitHub Copilot이 리뷰 예정)"
 
 deactivate Claude
 
-== 6. 컨텍스트 압축 시: 규칙 재주입 (PostCompact 훅) ==
+== 6. 컨텍스트 압축 시: 규칙 재주입 (<color:red><b>PostCompact</b></color> 훅) ==
 
 note over Claude
   대화가 길어져 컨텍스트 압축이 발생하면
@@ -243,6 +251,29 @@ note over Claude
   - 머지 알림 필수 (절대 생략 금지)
   - PR 생성 절차 (rebase → push → gh pr create)
   - TDD 우선, 한글 커밋, .env 수정 금지
+end note
+
+== 7. 애플리케이션 런타임 참고 (git 워크플로 외) ==
+
+note over Backend, GitHub #F1F8E9
+  **Backend 주요 구조**
+  · FastAPI + SQLModel + Alembic + asyncpg (PostgreSQL 16)
+  · 대화/메시지 영속화 (conversations / messages 테이블)
+  · 슬라이딩 윈도우 20턴 (DB에서 최근 N개만 LLM에 전달)
+  · LLM 호출: OpenAI 호환 /v1/chat/completions + HMAC 서명
+    (X-API-Key / X-Timestamp / X-Nonce / X-Signature)
+  · 로컬 function calling: backend/app/tools.py
+    (예: get_top_stocks — FinanceDataReader)
+
+  **Frontend 주요 구조**
+  · React 18 + TS + Vite, 사이드바(대화 목록/새 채팅/삭제/전환)
+  · 개발: localhost:5173 (vite --host)
+  · 도커: nginx가 SPA + /api → backend:8000 프록시
+
+  **Docker Compose (프로덕션 스타일)**
+  · frontend(54084) → backend(54085) → postgres(54086)
+  · backend entrypoint: alembic upgrade head → uvicorn
+  · docker-compose up -d --build
 end note
 
 == 권한 정책 요약 (settings.json + settings.local.json) ==
