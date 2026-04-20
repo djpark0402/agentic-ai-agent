@@ -1,22 +1,20 @@
 import hashlib
 import hmac
-import json
 import time
 import uuid
-
-import pytest
 
 from app.signing import build_hmac_headers
 
 
 FAKE_SECRET = "test-secret-key-12345"
-FAKE_API_KEY = "sk-proj-abc123"
-FAKE_BODY = {"model": "gpt-5", "messages": [{"role": "user", "content": "hello"}]}
+FAKE_API_KEY = "ak_test_abc123"
+FAKE_BODY = b'{"model":"solar","messages":[{"role":"user","content":"hello"}]}'
 
 
 class TestBuildHmacHeaders:
     def test_returns_required_headers(self):
         headers = build_hmac_headers(FAKE_BODY, FAKE_API_KEY, FAKE_SECRET)
+        assert headers["X-API-Key"] == FAKE_API_KEY
         assert "X-Timestamp" in headers
         assert "X-Nonce" in headers
         assert "X-Signature" in headers
@@ -37,32 +35,32 @@ class TestBuildHmacHeaders:
         h2 = build_hmac_headers(FAKE_BODY, FAKE_API_KEY, FAKE_SECRET)
         assert h1["X-Nonce"] != h2["X-Nonce"]
 
-    def test_signature_is_hex(self):
+    def test_signature_is_lowercase_hex_64(self):
         headers = build_hmac_headers(FAKE_BODY, FAKE_API_KEY, FAKE_SECRET)
         sig = headers["X-Signature"]
-        assert len(sig) == 64  # SHA256 hex digest
+        assert len(sig) == 64
+        assert sig == sig.lower()
         int(sig, 16)  # should not raise
 
-    def test_signature_is_deterministic_with_fixed_inputs(self):
+    def test_signature_matches_spec(self):
+        """string_to_sign = "{ts}.{nonce}.{sha256(body)}" 규격 검증."""
         ts = "1700000000"
         nonce = "aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee"
-        body_str = json.dumps(FAKE_BODY, separators=(",", ":"), sort_keys=True)
-        api_key_hash = hashlib.sha256(FAKE_API_KEY.encode()).hexdigest()
-        body_hash = hashlib.sha256(body_str.encode()).hexdigest()
-        string_to_sign = f"{ts}.{nonce}.{api_key_hash}.{body_hash}"
+        body_hash = hashlib.sha256(FAKE_BODY).hexdigest()
         expected = hmac.new(
-            FAKE_SECRET.encode(), string_to_sign.encode(), hashlib.sha256
+            FAKE_SECRET.encode(),
+            f"{ts}.{nonce}.{body_hash}".encode(),
+            hashlib.sha256,
         ).hexdigest()
 
         headers = build_hmac_headers(
-            FAKE_BODY, FAKE_API_KEY, FAKE_SECRET,
-            _timestamp=ts, _nonce=nonce,
+            FAKE_BODY, FAKE_API_KEY, FAKE_SECRET, _timestamp=ts, _nonce=nonce,
         )
         assert headers["X-Signature"] == expected
 
     def test_different_body_produces_different_signature(self):
-        body_a = {"model": "gpt-5", "messages": [{"role": "user", "content": "hello"}]}
-        body_b = {"model": "gpt-5", "messages": [{"role": "user", "content": "bye"}]}
+        body_a = b'{"model":"solar","messages":[{"role":"user","content":"hello"}]}'
+        body_b = b'{"model":"solar","messages":[{"role":"user","content":"bye"}]}'
         h1 = build_hmac_headers(body_a, FAKE_API_KEY, FAKE_SECRET)
         h2 = build_hmac_headers(body_b, FAKE_API_KEY, FAKE_SECRET)
         assert h1["X-Signature"] != h2["X-Signature"]

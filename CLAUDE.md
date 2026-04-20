@@ -32,6 +32,10 @@ main (프로덕션)
 2. `feat/pr-develop`에서 `feat/new-promt-YYYYMMDD-HHMMSS` 세션 브랜치 자동 생성
 3. 세션 동안 해당 브랜치에서 작업 + Stop 훅으로 자동 커밋
 
+### 프롬프트 제출 시 (UserPromptSubmit 훅 자동 실행)
+- 현재 브랜치가 `feat/new-promt-*`가 아니면 자동으로 세션 브랜치를 재생성해 전환
+- 세션 중 머지로 브랜치가 삭제된 뒤 다음 프롬프트가 들어와도 Claude가 직접 브랜치를 만들 필요 없음 (훅이 강제로 채움)
+
 ### 세션 종료 / 작업 완료 시 (Claude 수동 수행, 사용자 승인 필요)
 1. 세션 브랜치의 커밋을 분석하여 작업 유형별로 분리
 2. 유형별 브랜치 생성: `feat/backend-auth`, `docs/api-spec`, `fix/login-error` 등
@@ -53,6 +57,7 @@ main (프로덕션)
 
 ## 자동화 정책 (hooks + permissions)
 - **SessionStart 훅**: 세션 시작 시 `feat/pr-develop` → `feat/new-promt-*` 세션 브랜치 자동 생성
+- **UserPromptSubmit 훅**: 사용자 프롬프트 제출 시마다 현재 브랜치가 `feat/new-promt-*`가 아니면 자동 재생성 (머지 후 세션 브랜치 삭제 상태에서 다음 프롬프트가 와도 강제 복구)
 - **Stop 훅 자동 커밋**: 매 프롬프트 턴이 끝나면 `.claude/hooks/auto-commit.sh`가 실행되어 python lint(ruff→flake8→py_compile 순) 및 frontend lint(eslint→tsc --noEmit 순) 통과 시 변경사항을 로컬에 자동 커밋합니다. lint 실패 시 커밋은 중단됩니다. merge 후 feat/new-promt-* 작업 브랜치는 삭제하세요.
 - **원격 push는 항상 사용자 승인 필요**: `git push`는 permission `ask`로 설정되어 있습니다. 로컬 커밋 후 push가 필요하면 반드시 "지금 push 할까요?"라고 사용자에게 먼저 물어보세요.
 - **`.env` 파일은 read 전용**: Write/Edit는 permission `deny`로 차단되어 있습니다. `.env` 편집이 필요하면 사용자에게 직접 수정을 요청하세요.
@@ -63,23 +68,18 @@ main (프로덕션)
 
 ## Claude 필수 행동 규칙 (절대 생략 금지)
 
-### 1. 항상 세션 브랜치에서 작업
-- **feat/pr-develop에서 직접 코드를 수정하지 말 것**
-- 작업 시작 전 반드시 현재 브랜치를 확인하고, `feat/new-promt-*` 브랜치가 아니면 새로 생성 후 이동
-- pr-develop은 통합 브랜치이므로 직접 작업 금지
-
-### 2. Stop 훅 머지 알림 수신 시 반드시 질문
+### 1. Stop 훅 머지 알림 수신 시 반드시 질문
 - auto-commit.sh에서 커밋 완료 후 "pr-develop에 머지할까요?" systemMessage가 오면, **반드시 사용자에게 머지 여부를 질문할 것**
 - 이 알림을 무시하거나 생략하지 말 것
 
-### 3. pr-develop 머지 완료 후 반드시 PR 생성 질문
+### 2. pr-develop 머지 완료 후 반드시 PR 생성 질문
 - 세션 브랜치 → pr-develop 머지가 완료되면, 즉시 **"develop으로 PR 생성할까요?"** 라고 사용자에게 질문할 것
 - 머지만 하고 PR 질문을 빠뜨리지 말 것
 
-### 4. 전체 흐름 요약 (매 턴마다 체크)
+### 3. 전체 흐름 요약 (매 턴마다 체크)
 ```
-작업 시작 → feat/new-promt-* 브랜치 확인/생성
-  → 작업 수행
+프롬프트 제출 → UserPromptSubmit 훅이 feat/new-promt-* 강제 보장
+  → 작업 수행 (Claude는 브랜치 체크/생성 수동으로 하지 않음)
   → Stop 훅: lint 통과 → 자동 커밋
   → "feat/pr-develop에 머지할까요?" 질문
   → 승인 시: 머지 + 세션 브랜치 삭제

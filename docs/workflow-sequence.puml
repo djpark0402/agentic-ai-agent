@@ -174,6 +174,12 @@ Claude -> Git : git checkout feat/pr-develop
 Claude -> Git : git merge feat/new-promt-*\n--no-ff -m "커밋 메시지"
 Claude -> Git : git branch -d feat/new-promt-*\n(세션 브랜치 삭제)
 
+note over Claude #FFFFCC
+  **PostToolUse 훅 (check-merge.sh)**
+  위 git merge 실행 직후 자동 block 발동
+  → "develop으로 PR 생성할까요?"\n    질문 강제 (훅이 Claude 응답 유도)
+end note
+
 note over Claude #FFcccc
   **절대 생략 금지**
   머지 완료 후 반드시
@@ -186,28 +192,39 @@ Claude --> User : "머지 완료.\n**develop으로 PR 생성할까요?**"
 
 User -> Claude : "네" (PR 생성 승인)
 
-Claude -> Git : git rebase develop\n(충돌 방지, PR 생성 전 필수)
+Claude -> Git : git fetch origin\n(최신 develop 동기화)
+Claude -> Git : git rebase origin/develop\n(충돌 방지, PR 생성 전 필수)
 
 alt rebase 충돌 발생
     Claude -> Git : 충돌 해결
     Claude -> Git : git rebase --continue
 end
 
-Claude -> Git : git push origin feat/pr-develop\n(사용자 승인 필요 — permission: ask)
-Git -> GitHub : push
+Claude -> Git : git push --force-with-lease\norigin feat/pr-develop\n(사용자 승인 필요 — permission: ask)
+Git -> GitHub : push (rebase로 히스토리 재작성되어\nforce-with-lease 필요)
 
 Claude -> GitHub : gh pr create\n--base develop\n--head feat/pr-develop\n(PULL_REQUEST_TEMPLATE.md 사용)
 
 note right of GitHub
-  **PR 템플릿 체크리스트**
-  ☑ 변경 요약
-  ☑ 변경 유형 (feat/fix/docs...)
-  ☑ Python lint 통과
+  **PR 템플릿 체크리스트 (풀스택 기준)**
+  ☑ 변경 요약 / 변경 유형
+  ——— 코드 품질 (Backend / Python) ———
+  ☑ Python lint (ruff/flake8) 통과
   ☑ 타입 힌트 적절히 사용
+  ☑ 불필요한 import/코드 제거
+  ——— 코드 품질 (Frontend / TS) ———
+  ☑ ESLint 통과 (해당 시)
+  ☑ tsc --noEmit 타입 체크 통과
+  ☑ vite build 빌드 성공
+  ——— 테스트 ———
   ☑ 단위 테스트 작성 및 통과
+  ☑ 인증/서명 로직 변경 시\n    test_hmac_signing.py 확인
+  ——— 보안 ———
   ☑ .env 등 민감 정보 미포함
   ☑ OWASP Top 10 취약점 확인
-  ☑ 테스트 방법
+  ☑ LLM API 키 하드코딩 없음
+  ☑ 프롬프트 인젝션 방어 고려
+  ☑ CORS origin 설정 검토
 end note
 
 Claude --> User : "PR 생성 완료: #번호\n(GitHub Copilot이 리뷰 예정)"
