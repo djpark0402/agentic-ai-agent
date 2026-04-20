@@ -7,20 +7,20 @@ skinparam ParticipantPadding 10
 
 actor "사용자" as User
 participant "Claude Code" as Claude
-participant "SessionStart 훅\n(session-start.sh)" as SessionHook
-participant "UserPromptSubmit 훅\n(user-prompt-submit.sh)" as PromptHook
-participant "Stop 훅\n(auto-commit.sh)" as StopHook
+participant "<color:red><b>SessionStart</b></color> 훅\n(session-start.sh)" as SessionHook
+participant "<color:red><b>UserPromptSubmit</b></color> 훅\n(user-prompt-submit.sh)" as PromptHook
+participant "<color:red><b>Stop</b></color> 훅\n(auto-commit.sh)" as StopHook
 participant "Backend 에이전트\n(Python/FastAPI)" as Backend
 participant "Frontend 에이전트\n(React/TypeScript)" as Frontend
 database "Git\n(로컬)" as Git
 database "GitHub\n(원격)" as GitHub
 
-== 1. 세션 시작 (SessionStart 훅 자동 실행 — CLI 최초 기동 시 1회) ==
+== 1. 세션 시작 (<color:red><b>SessionStart</b></color> 훅 자동 실행 — CLI 최초 기동 시 1회) ==
 
 User -> Claude : Claude Code 실행
 activate Claude
 
-Claude -> SessionHook : SessionStart(startup) 훅 트리거
+Claude -> SessionHook : <color:red><b>SessionStart</b></color>(startup) 훅 트리거
 activate SessionHook
 
 SessionHook -> Git : feat/pr-develop 브랜치 존재 확인
@@ -42,8 +42,8 @@ deactivate SessionHook
 
 note over Claude #E3F2FD
   **역할 분담**
-  · SessionStart = CLI 최초 기동의 초기 kickoff
-  · UserPromptSubmit = 매 프롬프트마다 세션 브랜치 강제 보장 (주 장치)
+  · <color:red><b>SessionStart</b></color> = CLI 최초 기동의 초기 kickoff
+  · <color:red><b>UserPromptSubmit</b></color> = 매 프롬프트마다 세션 브랜치 강제 보장 (주 장치)
   Claude는 브랜치 체크/생성을 수동으로 하지 않음 — 훅이 담당.
 end note
 
@@ -51,7 +51,7 @@ end note
 
 User -> Claude : 작업 요청 (프롬프트 제출)
 
-Claude -> PromptHook : UserPromptSubmit 훅 자동 실행
+Claude -> PromptHook : <color:red><b>UserPromptSubmit</b></color> 훅 자동 실행
 activate PromptHook
 PromptHook -> Git : 현재 브랜치 조회
 
@@ -107,12 +107,12 @@ else API 인터페이스 변경 (양쪽 동기화)
 end
 
 note over Claude #FFFFCC
-  **PreToolUse 훅 (check-branch.sh)**
+  **<color:red><b>PreToolUse</b></color> 훅 (check-branch.sh)**
   Edit/Write 실행 전마다 현재 브랜치 확인
   main/develop/pr-develop이면 exit 2로 차단
   "세션 브랜치를 생성한 후 작업하세요"
 
-  **PostToolUse 훅 (check-merge.sh)**
+  **<color:red><b>PostToolUse</b></color> 훅 (check-merge.sh)**
   Bash 실행 후 git merge 감지 시
   pr-develop 브랜치면 block 반환
   → "develop으로 PR 생성할까요?" 강제 질문
@@ -120,9 +120,9 @@ end note
 
 Claude --> User : 작업 결과 응답
 
-== 3. Stop 훅 — 자동 커밋 + 머지 알림 ==
+== 3. <color:red><b>Stop</b></color> 훅 — 자동 커밋 + 머지 알림 ==
 
-Claude -> StopHook : Stop 훅 자동 실행 (턴 종료)
+Claude -> StopHook : <color:red><b>Stop</b></color> 훅 자동 실행 (턴 종료)
 activate StopHook
 
 StopHook -> Git : 변경사항 확인\n(git diff + untracked files)
@@ -173,7 +173,7 @@ deactivate StopHook
 
 note over Claude #FFcccc
   **절대 생략 금지**
-  Stop 훅에서 머지 알림을 받으면
+  <color:red><b>Stop</b></color> 훅에서 머지 알림을 받으면
   반드시 사용자에게 질문할 것
 end note
 
@@ -189,7 +189,7 @@ Claude -> Git : git merge feat/new-promt-*\n--no-ff -m "커밋 메시지"
 Claude -> Git : git branch -d feat/new-promt-*\n(세션 브랜치 삭제)
 
 note over Claude #FFFFCC
-  **PostToolUse 훅 (check-merge.sh)**
+  **<color:red><b>PostToolUse</b></color> 훅 (check-merge.sh)**
   위 git merge 실행 직후 자동 block 발동
   → "develop으로 PR 생성할까요?"\n    질문 강제 (훅이 Claude 응답 유도)
 end note
@@ -245,7 +245,7 @@ Claude --> User : "PR 생성 완료: #번호\n(GitHub Copilot이 리뷰 예정)"
 
 deactivate Claude
 
-== 6. 컨텍스트 압축 시: 규칙 재주입 (PostCompact 훅) ==
+== 6. 컨텍스트 압축 시: 규칙 재주입 (<color:red><b>PostCompact</b></color> 훅) ==
 
 note over Claude
   대화가 길어져 컨텍스트 압축이 발생하면

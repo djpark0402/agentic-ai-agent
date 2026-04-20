@@ -34,13 +34,13 @@ main (프로덕션)
 ```
 
 ### 세션 브랜치 보장 (두 훅이 중복 방어)
-**UserPromptSubmit 훅** (`.claude/hooks/user-prompt-submit.sh`) — **주 보장 장치**
+<span style="color:red">**UserPromptSubmit**</span> 훅 (`.claude/hooks/user-prompt-submit.sh`) — **주 보장 장치**
 - 사용자 프롬프트가 제출될 때마다 실행
 - 현재 브랜치가 `feat/new-promt-*`이면 exit 0 (아무것도 안 함)
 - 그 외라면 `feat/pr-develop` 기준으로 새 `feat/new-promt-YYYYMMDD-HHMMSS` 생성 + 전환
 - 머지로 세션 브랜치가 삭제된 뒤에도 다음 프롬프트가 들어오면 자동 복구
 
-**SessionStart 훅** (`.claude/hooks/session-start.sh`) — 초기 kickoff
+<span style="color:red">**SessionStart**</span> 훅 (`.claude/hooks/session-start.sh`) — 초기 kickoff
 - Claude CLI를 처음 띄우는 순간(`matcher: startup`) 1회만 실행
 - `feat/pr-develop` 없으면 `develop`에서 생성
 - `feat/new-promt-*` 세션 브랜치를 선제 생성 (첫 프롬프트 이전 구간도 안전하게 커버)
@@ -69,27 +69,27 @@ main (프로덕션)
 ## 자동화 정책 (hooks + permissions)
 
 ### 브랜치 관리
-- **SessionStart 훅** (`session-start.sh`): CLI 시작 시 1회 — pr-develop 보장 + 세션 브랜치 선제 생성
-- **UserPromptSubmit 훅** (`user-prompt-submit.sh`): 매 프롬프트 — 세션 브랜치 아니면 강제 재생성 (주 보장 장치)
-- **PreToolUse 훅** (`check-branch.sh`): Edit/Write 직전 — main/develop/pr-develop이면 exit 2로 차단 (방어선)
+- <span style="color:red">**SessionStart**</span> 훅 (`session-start.sh`): CLI 시작 시 1회 — pr-develop 보장 + 세션 브랜치 선제 생성
+- <span style="color:red">**UserPromptSubmit**</span> 훅 (`user-prompt-submit.sh`): 매 프롬프트 — 세션 브랜치 아니면 강제 재생성 (주 보장 장치)
+- <span style="color:red">**PreToolUse**</span> 훅 (`check-branch.sh`): Edit/Write 직전 — main/develop/pr-develop이면 exit 2로 차단 (방어선)
 
 ### 커밋/머지/푸시
-- **Stop 훅** (`auto-commit.sh`): 매 프롬프트 턴 종료 시 lint(ruff→flake8→py_compile, eslint→tsc --noEmit) 통과 후 자동 커밋. lint 실패 시 커밋 중단. 커밋 완료 후 "feat/pr-develop에 머지할까요?" 질문을 Claude에게 강제.
-- **PostToolUse 훅** (`check-merge.sh`): `git merge` 감지 시 "develop으로 PR 생성할까요?" 질문 강제.
-- **PostToolUse 훅** (`post-lint.sh`): Write/Edit 직후 즉시 lint 검사.
+- <span style="color:red">**Stop**</span> 훅 (`auto-commit.sh`): 매 프롬프트 턴 종료 시 lint(ruff→flake8→py_compile, eslint→tsc --noEmit) 통과 후 자동 커밋. lint 실패 시 커밋 중단. 커밋 완료 후 "feat/pr-develop에 머지할까요?" 질문을 Claude에게 강제.
+- <span style="color:red">**PostToolUse**</span> 훅 (`check-merge.sh`): `git merge` 감지 시 "develop으로 PR 생성할까요?" 질문 강제.
+- <span style="color:red">**PostToolUse**</span> 훅 (`post-lint.sh`): Write/Edit 직후 즉시 lint 검사.
 - **원격 push는 항상 사용자 승인 필요** — `git push`는 permission `ask`. 푸시 전에 "지금 push 할까요?" 질문.
 - **merge/PR은 항상 사용자 승인** — pr-develop에 머지하거나 develop으로 PR 생성 전 반드시 확인. PR 생성 전 pr-develop은 develop 기준으로 rebase 필수 (충돌 방지).
 
 ### 보안
 - **`.env`는 read 전용** — `Edit(**/.env)` / `Write(**/.env)`는 permission `deny`. 수정 필요 시 사용자에게 직접 요청.
-- **PreToolUse 보조 차단**: `.env` 경로 Edit/Write 시 인라인 훅으로도 exit 2.
+- <span style="color:red">**PreToolUse**</span> 보조 차단: `.env` 경로 Edit/Write 시 인라인 훅으로도 exit 2.
 
 ### 컨텍스트 관리
-- **PostCompact 훅** (`post-compact.sh`): 컨텍스트 압축 후 핵심 규칙 재주입 (브랜치·머지·PR·TDD·한글 커밋 등).
+- <span style="color:red">**PostCompact**</span> 훅 (`post-compact.sh`): 컨텍스트 압축 후 핵심 규칙 재주입 (브랜치·머지·PR·TDD·한글 커밋 등).
 
 ## Claude 필수 행동 규칙 (절대 생략 금지)
 
-### 1. Stop 훅 머지 알림 수신 시 반드시 질문
+### 1. <span style="color:red">**Stop**</span> 훅 머지 알림 수신 시 반드시 질문
 - auto-commit.sh에서 커밋 완료 후 "pr-develop에 머지할까요?" systemMessage가 오면, **반드시 사용자에게 머지 여부를 질문할 것**
 - 이 알림을 무시하거나 생략하지 말 것
 
@@ -111,7 +111,7 @@ main (프로덕션)
 ## 개발 워크플로 (TDD 우선)
 - 새 기능이나 버그 수정 시 항상 **실패하는 테스트를 먼저 작성**하고, 해당 테스트가 실제로 실패하는지 확인한 뒤, 그 테스트를 통과시키는 최소한의 실무 코드를 작성해 반영합니다.
 - 테스트 없이 실무 코드를 먼저 작성하지 마세요. (red → green → refactor)
-- 각 프롬프트 세션에서 코드를 작성한 뒤 python lint를 수동으로도 한 번 확인하고, 통과하면 Stop 훅이 자동으로 커밋을 생성합니다.
+- 각 프롬프트 세션에서 코드를 작성한 뒤 python lint를 수동으로도 한 번 확인하고, 통과하면 <span style="color:red">**Stop**</span> 훅이 자동으로 커밋을 생성합니다.
 - Backend 테스트: `cd backend && .venv/bin/pytest` (conftest의 `DATABASE_URL`은 로컬 postgres 사용)
 - Frontend 타입체크: `cd frontend && npx tsc --noEmit`
 
