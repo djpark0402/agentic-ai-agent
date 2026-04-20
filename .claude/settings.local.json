@@ -29,7 +29,8 @@
       "Bash(git rm *)",
       "Bash(git mv *)",
       "Bash(git cherry-pick *)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(python3 -m py_compile backend/app/models.py backend/app/db.py backend/alembic/env.py backend/alembic/versions/0001_initial_conversations_messages.py)"
     ]
   }
 }
