@@ -54,7 +54,7 @@ class TestConversationsAPI:
     ):
         """chat 엔드포인트가 conversation_id를 받으면 user/assistant 메시지를 DB에 저장해야 한다."""
 
-        async def _fake_stream(messages, system, model=None, tools=None):
+        async def _fake_stream(messages, system, model=None, tools=None, base_url=None):
             yield {"type": "status", "stage": "thinking", "label": "..."}
             yield {"type": "token", "content": "안녕"}
             yield {"type": "token", "content": "하세요"}

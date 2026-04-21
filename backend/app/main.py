@@ -13,6 +13,7 @@ from .db import get_session
 from .llm import stream_events
 from .models import Conversation, Message
 from .routes.conversations import router as conversations_router
+from .routes.settings import get_base_url, router as settings_router
 from .schemas import ChatRequest
 from .tools import TOOL_SCHEMAS, call_tool
 
@@ -34,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(conversations_router)
+app.include_router(settings_router)
 
 
 @app.get("/health")
@@ -112,6 +114,10 @@ async def chat(req: ChatRequest, session: AsyncSession = Depends(get_session)):
         {"role": m.role, "content": m.content} for m in messages_for_llm
     ]
 
+    # BASE_URL: DB에 저장된 설정이 있으면 우선 사용, 없으면 env 폴백
+    base_url_value, base_url_source = await get_base_url(session)
+    print(f"[CHAT BASE_URL] {base_url_value} (source={base_url_source})")
+
     async def event_stream():
         full_reply = ""
         try:
@@ -120,6 +126,7 @@ async def chat(req: ChatRequest, session: AsyncSession = Depends(get_session)):
                 iter_reply = ""
                 async for ev in stream_events(
                     llm_messages, req.system, req.model, tools=tools_schema,
+                    base_url=base_url_value,
                 ):
                     t = ev.get("type")
                     if t == "tool_calls":

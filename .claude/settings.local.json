@@ -65,7 +65,16 @@
       "Bash(git check-ignore *)",
       "Bash(bash -n .claude/hooks/session-start.sh .claude/hooks/check-branch.sh .claude/hooks/auto-commit.sh .claude/hooks/post-compact.sh)",
       "Bash(bash -n .claude/hooks/session-start.sh .claude/hooks/auto-commit.sh)",
-      "Bash(bash -n .claude/hooks/session-start.sh .claude/hooks/auto-commit.sh .claude/hooks/check-branch.sh .claude/hooks/post-compact.sh)"
+      "Bash(bash -n .claude/hooks/session-start.sh .claude/hooks/auto-commit.sh .claude/hooks/check-branch.sh .claude/hooks/post-compact.sh)",
+      "Bash(.venv/bin/pytest tests/test_settings.py -x)",
+      "Bash(pg_isready -h localhost -p 5432)",
+      "Bash(brew services *)",
+      "Bash(.venv/bin/ruff check *)",
+      "Bash(open -a Docker)",
+      "Bash(SYNC_DATABASE_URL=\"postgresql://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/alembic upgrade head)",
+      "Bash(DATABASE_URL=\"postgresql+asyncpg://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/pytest tests/test_settings.py -v)",
+      "Bash(DATABASE_URL=\"postgresql+asyncpg://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/pytest)",
+      "Bash(DATABASE_URL=\"postgresql+asyncpg://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/pytest tests/test_conversations.py::TestConversationsAPI::test_chat_with_conversation_id_persists_messages -v)"
     ]
   }
 }

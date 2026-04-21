@@ -96,3 +96,25 @@ export async function deleteConversation(conversationId: string): Promise<void> 
   const res = await fetch(`/api/conversations/${conversationId}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
+
+export type AppSetting = {
+  key: string;
+  value: string;
+  source: "db" | "env";
+};
+
+export async function getBaseUrl(): Promise<AppSetting> {
+  const res = await fetch("/api/settings/base_url");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function updateBaseUrl(value: string): Promise<AppSetting> {
+  const res = await fetch("/api/settings/base_url", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ value }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}

@@ -43,6 +43,7 @@ async def stream_events(
     system: str | None,
     model: str | None = None,
     tools: list[dict] | None = None,
+    base_url: str | None = None,
 ) -> AsyncIterator[dict]:
     """Yield typed events: status | token | tool_calls | done.
 
@@ -88,7 +89,8 @@ async def stream_events(
     # --- HTTP POST 스트리밍 호출 (OpenAI/Solar 호환 /v1/chat/completions) ---
     import json as _json
 
-    url = f"{BASE_URL.rstrip('/')}/chat/completions"
+    effective_base_url = base_url or BASE_URL
+    url = f"{effective_base_url.rstrip('/')}/chat/completions"
 
     # messages가 Pydantic이면 dict로 변환, dict이면 그대로 사용 (tool 루프용)
     if messages and isinstance(messages[0], Message):
