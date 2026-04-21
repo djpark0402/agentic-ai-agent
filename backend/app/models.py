@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, DateTime, func
+from sqlalchemy import Column, DateTime, Text, func
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -42,3 +42,18 @@ class Message(SQLModel, table=True):
     )
 
     conversation: Optional[Conversation] = Relationship(back_populates="messages")
+
+
+class AppSetting(SQLModel, table=True):
+    __tablename__ = "app_settings"
+
+    key: str = Field(primary_key=True, max_length=64)
+    value: str = Field(sa_column=Column("value", Text, nullable=False))
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            onupdate=func.now(),
+            nullable=False,
+        )
+    )

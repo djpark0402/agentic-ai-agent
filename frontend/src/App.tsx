@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import {
   createConversation,
   deleteConversation,
+  getBaseUrl,
   getMessages,
   listConversations,
   streamChat,
+  updateBaseUrl,
   type Conversation,
 } from "./api";
 import { getSessionId } from "./session";
@@ -21,6 +23,43 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [baseUrl, setBaseUrl] = useState("");
+  const [baseUrlSource, setBaseUrlSource] = useState<"db" | "env" | null>(null);
+  const [savingBaseUrl, setSavingBaseUrl] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+
+  async function openSettings() {
+    setSettingsError(null);
+    setSettingsOpen(true);
+    try {
+      const s = await getBaseUrl();
+      setBaseUrl(s.value);
+      setBaseUrlSource(s.source);
+    } catch (e) {
+      setSettingsError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function saveBaseUrl() {
+    if (!baseUrl.trim()) {
+      setSettingsError("BASE_URL은 비워둘 수 없습니다");
+      return;
+    }
+    setSavingBaseUrl(true);
+    setSettingsError(null);
+    try {
+      const s = await updateBaseUrl(baseUrl.trim());
+      setBaseUrl(s.value);
+      setBaseUrlSource(s.source);
+      setSettingsOpen(false);
+    } catch (e) {
+      setSettingsError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSavingBaseUrl(false);
+    }
+  }
 
   useEffect(() => {
     refreshConversations();
@@ -164,7 +203,17 @@ export default function App() {
       </aside>
 
       <main className="main">
-        <h1>Solar Chat</h1>
+        <div className="main-header">
+          <h1>Solar Chat</h1>
+          <button
+            className="settings-btn"
+            onClick={openSettings}
+            aria-label="설정"
+            title="서버 설정"
+          >
+            ⚙
+          </button>
+        </div>
 
         <section className="system">
           <label>System Prompt</label>
@@ -213,6 +262,42 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {settingsOpen && (
+        <div className="modal-backdrop" onClick={() => setSettingsOpen(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>서버 설정</h3>
+            <label className="modal-label">
+              BASE_URL
+              {baseUrlSource && (
+                <span className={`badge badge-${baseUrlSource}`}>
+                  {baseUrlSource === "db" ? "DB 저장값" : "env 기본값"}
+                </span>
+              )}
+            </label>
+            <input
+              type="text"
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="http://host:port/v1"
+              disabled={savingBaseUrl}
+            />
+            {settingsError && <div className="error">{settingsError}</div>}
+            <div className="modal-buttons">
+              <button
+                onClick={() => setSettingsOpen(false)}
+                disabled={savingBaseUrl}
+                className="btn-secondary"
+              >
+                취소
+              </button>
+              <button onClick={saveBaseUrl} disabled={savingBaseUrl}>
+                {savingBaseUrl ? "저장 중..." : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

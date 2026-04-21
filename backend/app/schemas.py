@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Message(BaseModel):
@@ -35,3 +35,13 @@ class MessageRead(BaseModel):
     role: str
     content: str
     created_at: datetime
+
+
+class AppSettingRead(BaseModel):
+    key: str
+    value: str
+    source: Literal["db", "env"]
+
+
+class AppSettingUpdate(BaseModel):
+    value: str = Field(min_length=1)
