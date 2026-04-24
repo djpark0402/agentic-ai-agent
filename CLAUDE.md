@@ -24,53 +24,50 @@
 main (프로덕션)
  └── develop (개발 통합)
       └── feat/pr-develop (PR 준비용 통합 브랜치)
-           └── feat/new-prompt-YYYYMMDD-HHMMSS (매 세션 작업 브랜치, 자동 생성, pr-develop에 merge 시 반드시 사용자 승인 필요, merge후 삭제)
-                ├── feat/기능설명 (기능별 분리 브랜치)
-                ├── fix/버그설명
-                ├── docs/문서설명
-                ├── refactor/리팩토링설명
-                ├── test/테스트설명
-                └── chore/설정설명
+           └── feat/new-prompt-YYYYMMDD-HHMMSS (세션 브랜치 — 항상 1개만 유지, 자동 생성/재사용, pr-develop에 1회 머지 후 삭제)
 ```
+
+- **하위 분리 브랜치(feat/..., docs/..., fix/... 등)를 만들지 않는다.** 세션 브랜치를 유형별로 쪼개지 않고 그대로 `feat/pr-develop`에 머지한다.
+- `feat/new-prompt-*`는 **항상 1개만 유지** — 기존 세션 브랜치가 있으면 SessionStart / PreToolUse / Stop 훅이 모두 그걸 재사용하고, 없을 때만 새로 생성한다.
 
 ### 세션 브랜치 생성 정책 (순수 지연 생성)
 세션 브랜치(`feat/new-prompt-YYYYMMDD-HHMMSS`)는 **실제로 필요한 이벤트가 발생할 때만** 만들어집니다. SessionStart는 세션 브랜치를 **만들지 않습니다**.
 
 - <span style="color:red">**SessionStart**</span> 훅 (`session-start.sh`) — CLI 최초 기동 시 1회
-  - `feat/pr-develop`이 없으면 `develop`에서 생성
-  - `feat/pr-develop`으로 체크아웃
-  - **세션 브랜치는 만들지 않음** (통합 브랜치 준비까지만)
+  - `feat/pr-develop`이 없으면 `develop`에서 생성. `develop`이 없으면 `main` → `master` 순으로 기준 브랜치를 찾아 `develop`부터 자동 생성
+  - 기존 `feat/new-prompt-*` 세션 브랜치가 있으면 체크아웃하여 **이어서 작업** (2개 이상이면 최신 하나만 남기고 자동 정리)
+  - 기존 세션 브랜치가 없으면 `feat/pr-develop`으로만 이동 (Edit 시 지연 생성에 맡김)
 
-- <span style="color:red">**PreToolUse**</span> 훅 (`check-branch.sh`) — **Edit/Write 직전 지연 생성 (주 경로)**
+- <span style="color:red">**PreToolUse**</span> 훅 (`check-branch.sh`) — **Edit/Write 직전 지연 생성/재사용 (주 경로)**
   - `feat/new-prompt-*` → 그대로 허용
-  - `feat/pr-develop` → 새 세션 브랜치 자동 생성·전환 → Edit 허용
+  - `feat/pr-develop` → 기존 `feat/new-prompt-*`가 있으면 체크아웃해서 **이어서 작업**, 없을 때만 새 세션 브랜치 생성
   - `main` / `master` / `develop` → exit 2 차단
   - `.claude/` 경로는 어디서든 허용 (훅·설정 변경 목적)
 
 - <span style="color:red">**Stop**</span> 훅 (`auto-commit.sh`) — **커밋 직전 안전망**
-  - 커밋 시점에 `feat/pr-develop`에 변경사항이 있으면 (Bash 기반 파일 수정 / `.claude/` 편집으로 PreToolUse를 우회한 경우) 세션 브랜치로 자동 분기한 뒤 커밋
-  - 즉 "pr-develop에 직접 커밋되는" 경우가 없음
+  - 커밋 시점에 `feat/pr-develop`에 변경사항이 있으면 (Bash 기반 파일 수정 / `.claude/` 편집으로 PreToolUse를 우회한 경우) 기존 `feat/new-prompt-*`가 있으면 그리로 체크아웃, 없으면 새로 생성한 뒤 커밋
+  - 즉 "pr-develop에 직접 커밋되는" 경우가 없고, 세션 브랜치는 항상 1개만 유지됨
 
 **핵심**: 질문·탐색만 하는 턴은 브랜치 변화 0. 실제 파일 수정이 발생해야만 세션 브랜치가 생성됩니다. Claude는 브랜치 체크/생성을 수동으로 하지 않음.
 
 ### 세션 종료 / 작업 완료 시 (Claude 수동 수행, 사용자 승인 필요)
-1. 세션 브랜치의 커밋을 분석하여 작업 유형별로 분리
-2. 유형별 브랜치 생성: `feat/backend-auth`, `docs/api-spec`, `fix/login-error` 등
-3. 각 브랜치를 `feat/pr-develop`에 merge → **반드시 사용자에게 확인** → merge gn 각 브랜치 삭제 (feat/pr-develop 브랜치는 유지)
-4. `feat/pr-develop` → `develop`으로 PR 생성 → **반드시 사용자에게 확인** → feat/pr-develop 브랜치는 PR 생성전 반드시 develop브랜치를 기준으로 rebase 시키고 PR 생성 함(소스 충돌 방지)
-5. PR 생성 시 `.github/PULL_REQUEST_TEMPLATE.md` 템플릿 사용
+1. **세션 브랜치를 유형별로 쪼개지 않는다.** 세션 브랜치(`feat/new-prompt-*`)를 통째로 `feat/pr-develop`에 **`--no-ff`로 1회 머지** → **반드시 사용자에게 확인** → 머지 후 세션 브랜치 삭제 (feat/pr-develop 브랜치는 유지)
+2. `feat/pr-develop` → `develop`으로 PR 생성 → **반드시 사용자에게 확인** → feat/pr-develop 브랜치는 PR 생성 전 반드시 develop 기준으로 rebase (소스 충돌 방지)
+3. PR 생성 시 `.github/PULL_REQUEST_TEMPLATE.md` 템플릿 사용
 
-### 브랜치 접두사 규칙
-- `feat/` : 새 기능
-- `fix/` : 버그 수정
-- `docs/` : 문서 작업
-- `style/` : 코드 포맷팅
-- `refactor/` : 리팩토링
-- `test/` : 테스트
-- `chore/` : 빌드/설정
-- `perf/` : 성능 개선
-- `ci/` : CI/CD
-- `build/` : 빌드 시스템
+### 커밋 타입 접두사 규칙 (커밋 메시지 · 컨벤셔널 커밋용)
+> 아래 접두사는 **커밋 메시지 타입**에만 쓰며, 브랜치 이름에는 쓰지 않는다 (브랜치는 `feat/pr-develop`, `feat/new-prompt-*`, `develop`, `main`만 존재).
+
+- `feat:` : 새 기능
+- `fix:` : 버그 수정
+- `docs:` : 문서 작업
+- `style:` : 코드 포맷팅
+- `refactor:` : 리팩토링
+- `test:` : 테스트
+- `chore:` : 빌드/설정
+- `perf:` : 성능 개선
+- `ci:` : CI/CD
+- `build:` : 빌드 시스템
 
 ## 자동화 정책 (hooks + permissions)
 

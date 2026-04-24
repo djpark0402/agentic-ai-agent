@@ -33,11 +33,27 @@ case "$BRANCH" in
     exit 0
     ;;
   feat/pr-develop)
-    # 지연 생성: 현재 pr-develop이라면 Edit 직전에 새 세션 브랜치로 전환
+    # 정책: feat/new-prompt-* 는 항상 1개만 유지.
+    # 기존 세션 브랜치가 있으면 그걸로 전환, 없을 때만 새로 생성(지연 생성).
+    EXISTING_SESSION=$(git for-each-ref --sort=-committerdate \
+      --format='%(refname:short)' \
+      'refs/heads/feat/new-prompt-*' 2>/dev/null | head -1)
+
+    if [ -n "$EXISTING_SESSION" ]; then
+      if git checkout "$EXISTING_SESSION" >/dev/null 2>&1; then
+        jq -n --arg b "$EXISTING_SESSION" '{
+          "systemMessage": ("기존 세션 브랜치로 전환: " + $b + " (feat/new-prompt-*는 항상 1개 유지)")
+        }'
+        exit 0
+      else
+        echo "기존 세션 브랜치($EXISTING_SESSION) 전환 실패 — 충돌 가능성. 사용자에게 확인 요청." >&2
+        exit 2
+      fi
+    fi
+
     TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
     SESSION_BRANCH="feat/new-prompt-${TIMESTAMP}"
     if git checkout -b "$SESSION_BRANCH" >/dev/null 2>&1; then
-      # systemMessage만 출력 (exit 0으로 tool 실행 허용)
       jq -n --arg branch "$SESSION_BRANCH" '{
         "systemMessage": ("세션 브랜치 자동 생성 및 전환: " + $branch + " (pr-develop에서 Edit 직전 지연 생성)")
       }'

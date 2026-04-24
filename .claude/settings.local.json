@@ -74,7 +74,10 @@
       "Bash(SYNC_DATABASE_URL=\"postgresql://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/alembic upgrade head)",
       "Bash(DATABASE_URL=\"postgresql+asyncpg://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/pytest tests/test_settings.py -v)",
       "Bash(DATABASE_URL=\"postgresql+asyncpg://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/pytest)",
-      "Bash(DATABASE_URL=\"postgresql+asyncpg://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/pytest tests/test_conversations.py::TestConversationsAPI::test_chat_with_conversation_id_persists_messages -v)"
+      "Bash(DATABASE_URL=\"postgresql+asyncpg://agentic:agentic_dev_pw@localhost:54086/agentic_ai\" .venv/bin/pytest tests/test_conversations.py::TestConversationsAPI::test_chat_with_conversation_id_persists_messages -v)",
+      "WebSearch",
+      "Bash(bash -n /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)",
+      "Bash(git *)"
     ]
   }
 }

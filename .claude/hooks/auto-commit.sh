@@ -24,13 +24,23 @@ fi
 
 # ── 안전망: 커밋 직전 pr-develop이면 세션 브랜치로 자동 분기 ──
 # PreToolUse(Edit|Write) 매처를 우회한 Bash 기반 파일 수정 + .claude/ 예외 편집이
-# pr-develop에 남는 것을 막는다. (SessionStart에서 세션 브랜치를 더 이상 만들지 않기 때문)
+# pr-develop에 남는 것을 막는다.
+# 정책: feat/new-prompt-* 는 항상 1개만 유지 — 기존이 있으면 재사용.
 if [ "$BRANCH" = "feat/pr-develop" ]; then
-  TS=$(date +"%Y%m%d-%H%M%S")
-  NEW_SESSION="feat/new-prompt-${TS}"
-  if git checkout -b "$NEW_SESSION" >/dev/null 2>&1; then
-    BRANCH="$NEW_SESSION"
-    echo "{\"systemMessage\":\"pr-develop에 변경사항 감지 → 세션 브랜치 자동 생성 후 커밋: ${NEW_SESSION}\"}"
+  EXISTING_SESSION=$(git for-each-ref --sort=-committerdate \
+    --format='%(refname:short)' \
+    'refs/heads/feat/new-prompt-*' 2>/dev/null | head -1)
+
+  if [ -n "$EXISTING_SESSION" ] && git checkout "$EXISTING_SESSION" >/dev/null 2>&1; then
+    BRANCH="$EXISTING_SESSION"
+    echo "{\"systemMessage\":\"pr-develop에 변경사항 감지 → 기존 세션 브랜치로 전환 후 커밋: ${EXISTING_SESSION}\"}"
+  else
+    TS=$(date +"%Y%m%d-%H%M%S")
+    NEW_SESSION="feat/new-prompt-${TS}"
+    if git checkout -b "$NEW_SESSION" >/dev/null 2>&1; then
+      BRANCH="$NEW_SESSION"
+      echo "{\"systemMessage\":\"pr-develop에 변경사항 감지 → 세션 브랜치 자동 생성 후 커밋: ${NEW_SESSION}\"}"
+    fi
   fi
 fi
 
