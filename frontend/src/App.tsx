@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   createConversation,
   deleteConversation,
@@ -14,6 +14,10 @@ import type { Message } from "./types";
 
 export default function App() {
   const sessionId = getSessionId();
+  const messagesRef = useRef<HTMLElement | null>(null);
+  const stickToBottomRef = useRef(true);
+  const nextScrollBehaviorRef = useRef<ScrollBehavior>("auto");
+  const lastMessageCountRef = useRef(0);
 
   const [system, setSystem] = useState("You are a helpful assistant.");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -65,6 +69,30 @@ export default function App() {
     refreshConversations();
   }, []);
 
+  useLayoutEffect(() => {
+    const el = messagesRef.current;
+    if (!el) {
+      lastMessageCountRef.current = messages.length;
+      return;
+    }
+
+    if (stickToBottomRef.current) {
+      const appendedMessage = messages.length > lastMessageCountRef.current;
+      const behavior = appendedMessage ? nextScrollBehaviorRef.current : "auto";
+      el.scrollTo({ top: el.scrollHeight, behavior });
+      nextScrollBehaviorRef.current = "auto";
+    }
+
+    lastMessageCountRef.current = messages.length;
+  }, [messages, loading, status]);
+
+  function updateStickToBottomState() {
+    const el = messagesRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 80;
+  }
+
   async function refreshConversations() {
     try {
       const list = await listConversations(sessionId);
@@ -81,6 +109,8 @@ export default function App() {
     setActiveId(id);
     setError(null);
     try {
+      stickToBottomRef.current = true;
+      nextScrollBehaviorRef.current = "auto";
       const msgs = await getMessages(id);
       setMessages(msgs.map((m) => ({ role: m.role, content: m.content })));
     } catch (e) {
@@ -91,6 +121,8 @@ export default function App() {
   function newChat() {
     // 빈 대화를 미리 만들지 않음 — 첫 메시지 전송 시점에 그 내용으로 제목을 지어 생성
     setActiveId(null);
+    stickToBottomRef.current = true;
+    nextScrollBehaviorRef.current = "auto";
     setMessages([]);
     setError(null);
   }
@@ -130,6 +162,8 @@ export default function App() {
     }
 
     const userMsg: Message = { role: "user", content: input };
+    stickToBottomRef.current = true;
+    nextScrollBehaviorRef.current = "smooth";
     setMessages([...messages, userMsg, { role: "assistant", content: "" }]);
     setInput("");
     setLoading(true);
@@ -224,7 +258,11 @@ export default function App() {
           />
         </section>
 
-        <section className="messages">
+        <section
+          className="messages"
+          ref={messagesRef}
+          onScroll={updateStickToBottomState}
+        >
           {messages.map((m, i) => (
             <div key={i} className={`msg msg-${m.role}`}>
               <div className="role">{m.role}</div>
