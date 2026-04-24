@@ -86,8 +86,11 @@
   .node.active {
     outline: 3px solid #3b82f6;
     outline-offset: 2px;
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
+    transform: scale(1.04);
   }
+  .flowchart.tour .node:not(.active) { opacity: 0.35; filter: grayscale(0.4); }
+  .flowchart.tour .node.active { opacity: 1; filter: none; }
 
   /* 카테고리별 색 */
   .node.start { background: #dcfce7; border-color: #86efac; color: #166534; }
@@ -273,6 +276,90 @@
     background: #f8fafc;
     border-color: #94a3b8;
     color: #475569;
+  }
+
+  /* ── 네비게이션 ── */
+  .tour-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .progress {
+    font-size: 0.78rem;
+    color: #64748b;
+  }
+  .progress strong { color: #3b82f6; font-size: 0.95rem; }
+  .progress-dots {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .progress-dots .d {
+    width: 18px; height: 5px;
+    border-radius: 3px;
+    background: #e2e8f0;
+    transition: all 0.2s;
+  }
+  .progress-dots .d.done { background: #cbd5e1; }
+  .progress-dots .d.active { background: linear-gradient(90deg, #3b82f6, #8b5cf6); transform: scaleY(1.6); }
+
+  .tour-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+  }
+  .btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    flex: 1;
+  }
+  .btn:hover:not(:disabled) { background: #f1f5f9; border-color: #94a3b8; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-next {
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    color: #ffffff;
+    border: none;
+    flex: 2;
+  }
+  .btn-next:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.3);
+  }
+  .btn-play {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+  }
+  .btn-play.playing {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #991b1b;
+  }
+  .kbd-hint {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    text-align: center;
+    margin-top: 8px;
+  }
+  .kbd-hint kbd {
+    background: #f1f5f9;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid #cbd5e1;
+    font-family: monospace;
+    font-size: 0.7rem;
   }
 </style>
 </head>
@@ -567,6 +654,25 @@ fi`,
   },
 };
 
+// 라이프사이클 순서 (투어 순회 순서)
+const ORDER = [
+  'SessionStart',
+  'UserPromptSubmit',
+  'PreToolUse',
+  'PermissionRequest',
+  'ToolExecutes',
+  'PostToolUse',
+  'SubagentStartStop',
+  'Notification',
+  'Stop',
+  'PreCompact',
+  'SessionEnd',
+];
+
+let currentIdx = 0;
+let playTimer = null;
+const AUTO_INTERVAL = 4500;
+
 function render(id) {
   const d = DATA[id];
   if (!d) return;
@@ -577,7 +683,22 @@ function render(id) {
   if (d.matcher) badges.push('<span class="badge matcher">' + d.matcher + '</span>');
   if (d.script) badges.push('<span class="badge script">' + d.script + '</span>');
 
+  const stepNum = ORDER.indexOf(id) + 1;
+  const total = ORDER.length;
+
   let html = '';
+  html += '<div class="tour-top">';
+  html += '  <div class="progress">';
+  html += '    <strong>STEP ' + stepNum + '</strong> / ' + total;
+  html += '    <div class="progress-dots">';
+  for (let i = 0; i < total; i++) {
+    const cls = i < stepNum - 1 ? 'done' : (i === stepNum - 1 ? 'active' : '');
+    html += '<div class="d ' + cls + '" data-step="' + i + '"></div>';
+  }
+  html += '    </div>';
+  html += '  </div>';
+  html += '</div>';
+
   html += '<h2>' + d.title + '</h2>';
   html += '<p class="sub">' + d.sub + '</p>';
   html += '<div class="badges">' + badges.join('') + '</div>';
@@ -601,18 +722,91 @@ function render(id) {
     html += '<div class="info-box ' + (d.note.type || '') + '">' + d.note.text + '</div>';
   }
 
+  // 네비게이션 컨트롤
+  html += '<div class="tour-controls">';
+  html += '  <button class="btn" id="btn-prev" ' + (stepNum === 1 ? 'disabled' : '') + '>← 이전</button>';
+  html += '  <button class="btn btn-play" id="btn-play" title="자동 재생">▶</button>';
+  html += '  <button class="btn btn-next" id="btn-next" ' + (stepNum === total ? 'disabled' : '') + '>다음 →</button>';
+  html += '</div>';
+  html += '<div class="kbd-hint">키보드 <kbd>←</kbd> <kbd>→</kbd> 로도 이동 · <kbd>Space</kbd> 자동 재생</div>';
+
   box.innerHTML = html;
+
+  // 이벤트 바인딩 (매 렌더마다 재바인딩)
+  document.getElementById('btn-prev').addEventListener('click', prev);
+  document.getElementById('btn-next').addEventListener('click', next);
+  document.getElementById('btn-play').addEventListener('click', togglePlay);
+  document.querySelectorAll('.progress-dots .d').forEach(dot => {
+    dot.addEventListener('click', () => goTo(parseInt(dot.dataset.step, 10)));
+  });
+  updatePlayBtn();
 }
 
+function highlightNode(id) {
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+  const target = document.querySelector('.node[data-id="' + id + '"]');
+  if (target) {
+    target.classList.add('active');
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function goTo(idx) {
+  if (idx < 0 || idx >= ORDER.length) return;
+  currentIdx = idx;
+  const id = ORDER[idx];
+  highlightNode(id);
+  render(id);
+}
+
+function next() {
+  if (currentIdx < ORDER.length - 1) goTo(currentIdx + 1);
+  else stopPlay();
+}
+function prev() { if (currentIdx > 0) goTo(currentIdx - 1); }
+
+function togglePlay() {
+  if (playTimer) stopPlay(); else startPlay();
+}
+function startPlay() {
+  if (currentIdx === ORDER.length - 1) goTo(0);
+  playTimer = setInterval(() => {
+    if (currentIdx >= ORDER.length - 1) { stopPlay(); return; }
+    next();
+  }, AUTO_INTERVAL);
+  updatePlayBtn();
+}
+function stopPlay() {
+  clearInterval(playTimer);
+  playTimer = null;
+  updatePlayBtn();
+}
+function updatePlayBtn() {
+  const btn = document.getElementById('btn-play');
+  if (!btn) return;
+  if (playTimer) { btn.textContent = '❚❚'; btn.classList.add('playing'); btn.title = '일시정지'; }
+  else { btn.textContent = '▶'; btn.classList.remove('playing'); btn.title = '자동 재생'; }
+}
+
+// 노드 클릭 시 해당 단계로 이동
 document.querySelectorAll('.node').forEach(node => {
   node.addEventListener('click', () => {
-    document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
-    node.classList.add('active');
-    render(node.dataset.id);
+    const idx = ORDER.indexOf(node.dataset.id);
+    if (idx >= 0) { stopPlay(); goTo(idx); }
   });
 });
 
-render('SessionStart');
+// 키보드
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { stopPlay(); next(); }
+  else if (e.key === 'ArrowLeft') { stopPlay(); prev(); }
+  else if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+});
+
+// 투어 모드 토글 (선택 외 노드 dim)
+document.querySelector('.flowchart').classList.add('tour');
+
+goTo(0);
 </script>
 
 </body>
