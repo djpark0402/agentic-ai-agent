@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Claude Code Hook 라이프사이클 — 프로젝트 매핑</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    background: #f8fafc;
+    color: #0f172a;
+    min-height: 100vh;
+    padding: 24px;
+    line-height: 1.6;
+  }
+  header {
+    max-width: 1200px;
+    margin: 0 auto 24px;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    background: linear-gradient(90deg, #2563eb, #7c3aed);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 6px;
+  }
+  header p { color: #64748b; font-size: 0.92rem; }
+  .legend {
+    display: inline-flex;
+    gap: 16px;
+    margin-top: 10px;
+    font-size: 0.82rem;
+    color: #475569;
+  }
+  .legend .dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .legend .used { background: #3b82f6; }
+  .legend .unused { background: #cbd5e1; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 28px;
+    max-width: 1200px;
+    margin: 0 auto;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── 플로우차트 ── */
+  .flowchart {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 26px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+    position: relative;
+  }
+
+  .node {
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: 1.5px solid;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    min-width: 220px;
+    user-select: none;
+  }
+  .node:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15); }
+  .node.active {
+    outline: 3px solid #3b82f6;
+    outline-offset: 2px;
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.25);
+  }
+
+  /* 카테고리별 색 */
+  .node.start { background: #dcfce7; border-color: #86efac; color: #166534; }
+  .node.agentic { background: #fefce8; border-color: #fde68a; color: #854d0e; }
+  .node.tool { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+  .node.stop { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+  .node.plain { background: #f1f5f9; border-color: #cbd5e1; color: #334155; }
+
+  /* 사용 여부 */
+  .node.unused {
+    opacity: 0.55;
+    background: #f8fafc;
+    border-style: dashed;
+  }
+  .node.used::after {
+    content: "●";
+    color: #3b82f6;
+    margin-left: 8px;
+    font-size: 0.7rem;
+    vertical-align: middle;
+  }
+
+  .arrow {
+    color: #94a3b8;
+    font-size: 1.2rem;
+    margin: 4px 0;
+  }
+
+  /* AGENTIC LOOP 박스 */
+  .loop-box {
+    border: 2px dashed #fb923c;
+    border-radius: 10px;
+    padding: 20px 14px 12px;
+    margin: 4px 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  .loop-label {
+    position: absolute;
+    top: -11px;
+    left: 16px;
+    background: #ffffff;
+    padding: 0 10px;
+    color: #c2410c;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+  .loop-back {
+    font-size: 0.72rem;
+    color: #c2410c;
+    margin-top: 8px;
+    background: #fff7ed;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid #fed7aa;
+  }
+
+  /* Notification aside */
+  .aside-wrap {
+    position: absolute;
+    left: -180px;
+    top: 320px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  @media (max-width: 1100px) {
+    .aside-wrap { position: static; margin: 14px 0; }
+  }
+  .aside-wrap .connector {
+    width: 40px;
+    border-top: 1.5px dashed #cbd5e1;
+  }
+
+  /* 루프백 (PreCompact → SessionStart) */
+  .full-loop-back {
+    margin-top: 10px;
+    font-size: 0.72rem;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px dashed #cbd5e1;
+  }
+
+  /* ── 상세 패널 ── */
+  .detail {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+    min-height: 600px;
+  }
+  .detail h2 {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+    color: #0f172a;
+  }
+  .detail .sub {
+    color: #64748b;
+    font-size: 0.88rem;
+    margin-bottom: 16px;
+  }
+  .badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid;
+  }
+  .badge.used { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+  .badge.unused { background: #f1f5f9; border-color: #cbd5e1; color: #64748b; }
+  .badge.script { background: #dcfce7; border-color: #86efac; color: #166534; }
+  .badge.matcher { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+
+  .detail h3 {
+    font-size: 0.82rem;
+    color: #3b82f6;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin: 18px 0 8px;
+  }
+  .detail p, .detail li { color: #334155; font-size: 0.92rem; }
+  .detail ul { list-style: none; }
+  .detail ul li {
+    padding: 6px 0 6px 22px;
+    position: relative;
+    border-bottom: 1px dashed #f1f5f9;
+  }
+  .detail ul li:last-child { border-bottom: none; }
+  .detail ul li::before {
+    content: "→";
+    position: absolute;
+    left: 4px;
+    color: #3b82f6;
+    font-weight: bold;
+  }
+  .detail code {
+    background: #f1f5f9;
+    color: #be185d;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 0.85em;
+  }
+  .detail pre {
+    background: #0f172a;
+    color: #a5f3fc;
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.78rem;
+    margin: 10px 0;
+    font-family: "SF Mono", Monaco, monospace;
+  }
+  .detail pre code { background: none; color: inherit; padding: 0; }
+  .info-box {
+    background: #fffbeb;
+    border-left: 3px solid #f59e0b;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #92400e;
+    margin: 12px 0;
+  }
+  .info-box.blue {
+    background: #eff6ff;
+    border-color: #3b82f6;
+    color: #1e3a8a;
+  }
+  .info-box.gray {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #475569;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Claude Code Hook 라이프사이클 — 프로젝트 매핑</h1>
+  <p>각 단계를 클릭하면 이 프로젝트(agentic-ai-agent)가 해당 단계에서 무엇을 하는지 오른쪽에 표시됩니다.</p>
+  <div class="legend">
+    <span><span class="dot used"></span>사용 중</span>
+    <span><span class="dot unused"></span>미사용</span>
+    <span>점선 박스 = Agentic Loop</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── 플로우차트 ── -->
+  <div class="flowchart">
+    <div class="node start used active" data-id="SessionStart">Session Start</div>
+    <div class="arrow">↓</div>
+    <div class="node plain unused" data-id="UserPromptSubmit">UserPromptSubmit</div>
+    <div class="arrow">↓</div>
+
+    <div class="loop-box">
+      <div class="loop-label">AGENTIC LOOP</div>
+      <div class="node agentic used" data-id="PreToolUse">PreToolUse</div>
+      <div class="arrow">↓</div>
+      <div class="node agentic used" data-id="PermissionRequest">PermissionRequest</div>
+      <div class="arrow">↓</div>
+      <div class="node tool" data-id="ToolExecutes">[tool executes]</div>
+      <div class="arrow">↓</div>
+      <div class="node agentic used" data-id="PostToolUse">PostToolUse / PostToolUseFailure</div>
+      <div class="arrow">↓</div>
+      <div class="node agentic unused" data-id="SubagentStartStop">SubagentStart / SubagentStop</div>
+      <div class="loop-back">↻ 루프 — PreToolUse로 돌아감</div>
+    </div>
+
+    <div class="arrow">↓</div>
+    <div class="node stop used" data-id="Stop">Stop</div>
+    <div class="arrow">↓</div>
+    <div class="node plain used" data-id="PreCompact">PreCompact · (실제는 PostCompact 사용)</div>
+    <div class="arrow">↓</div>
+    <div class="node plain unused" data-id="SessionEnd">SessionEnd</div>
+
+    <div class="full-loop-back">⤴ 다음 세션 시작 시 Session Start로 루프백</div>
+
+    <div class="aside-wrap">
+      <div class="node plain unused" data-id="Notification">Notification (Async)</div>
+      <div class="connector"></div>
+    </div>
+  </div>
+
+  <!-- ── 상세 패널 ── -->
+  <aside class="detail" id="detail"></aside>
+
+</div>
+
+<script>
+const DATA = {
+  SessionStart: {
+    title: "Session Start",
+    sub: "세션 시작 시 1회 실행",
+    used: true,
+    matcher: 'matcher: "startup"',
+    script: ".claude/hooks/session-start.sh",
+    nativeRole: "CLI 세션이 처음 기동될 때 단 한 번 실행됩니다. 프로젝트 환경 준비, 초기 컨텍스트 주입 같은 세션 초기화에 쓰입니다.",
+    projectRole: [
+      "<code>feat/pr-develop</code> 통합 브랜치가 없으면 <code>develop</code>에서 자동 생성",
+      "<code>develop</code>도 없으면 <code>main</code> → <code>master</code> 순으로 기준 브랜치를 찾아 <code>develop</code>부터 자동 생성",
+      "기존 <code>feat/new-prompt-*</code> 세션 브랜치가 있으면 체크아웃하여 <strong>이어서 작업</strong> (단일 유지 정책)",
+      "세션 브랜치가 2개 이상이면 가장 최근 commit 된 하나만 남기고 나머지 자동 삭제",
+      "세션 브랜치가 없으면 <code>feat/pr-develop</code>으로만 이동 (PreToolUse의 지연 생성에 맡김)"
+    ],
+    snippet: `# 핵심 분기
+if ! git rev-parse --verify feat/pr-develop; then
+  # develop 없으면 main/master → develop 자동 생성
+  ...
+fi
+
+EXISTING=$(git for-each-ref --sort=-committerdate \\
+  --format='%(refname:short)' \\
+  'refs/heads/feat/new-prompt-*' | head -1)
+
+if [ -n "$EXISTING" ]; then
+  git checkout "$EXISTING"   # 이어서 작업
+else
+  git checkout feat/pr-develop  # Edit 시 지연 생성
+fi`,
+    note: { type: "blue", text: "세션을 여러 번 재시작해도 feat/new-prompt-* 브랜치가 1개만 유지되며, 동일 브랜치에서 작업이 이어집니다." }
+  },
+
+  UserPromptSubmit: {
+    title: "UserPromptSubmit",
+    sub: "사용자 프롬프트 제출 시점",
+    used: false,
+    nativeRole: "사용자가 프롬프트를 submit할 때마다 실행됩니다. 프롬프트를 가공하거나 거부할 수 있습니다.",
+    projectRole: null,
+    note: { type: "gray", text: "이 프로젝트는 프롬프트 단계에 개입하지 않습니다. 작업은 PreToolUse부터 시작됩니다." }
+  },
+
+  PreToolUse: {
+    title: "PreToolUse",
+    sub: "도구 실행 직전",
+    used: true,
+    matcher: 'matcher: "Edit|Write"',
+    script: ".claude/hooks/check-branch.sh + 인라인 .env 차단",
+    nativeRole: "도구가 실행되기 직전에 개입해서 차단(exit 2)하거나 환경을 바꿀 수 있습니다. harness는 이 훅이 exit 2를 반환하면 도구를 실행하지 않습니다.",
+    projectRole: [
+      "<strong>브랜치 보호</strong> — <code>main</code>/<code>master</code>/<code>develop</code>에서 Edit/Write 시 exit 2로 차단",
+      "<strong>세션 브랜치 지연 생성 + 재사용</strong> — <code>feat/pr-develop</code>에서 Edit 시, 기존 <code>feat/new-prompt-*</code>가 있으면 그리로 체크아웃, 없으면 새로 생성",
+      "<strong>.env 이중 방어</strong> — 인라인 훅이 <code>Edit(**/.env)</code>/<code>Write(**/.env)</code> 매칭 시 exit 2로 차단",
+      "<code>.claude/</code> 경로 편집은 어떤 브랜치에서든 허용 (훅/설정 변경 목적)"
+    ],
+    snippet: `case "$BRANCH" in
+  feat/new-prompt-*) exit 0 ;;
+
+  feat/pr-develop)
+    EXISTING=$(git for-each-ref --sort=-committerdate \\
+      --format='%(refname:short)' \\
+      'refs/heads/feat/new-prompt-*' | head -1)
+
+    if [ -n "$EXISTING" ]; then
+      git checkout "$EXISTING"     # 재사용
+    else
+      git checkout -b "feat/new-prompt-$(date +%Y%m%d-%H%M%S)"
+    fi
+    ;;
+
+  main|master|develop)
+    exit 2    # 보호 브랜치 차단
+    ;;
+esac`,
+    note: { type: "blue", text: "지연 생성 + 재사용 덕분에 탐색·질문만 하는 턴에는 브랜치 변화가 0건, 실제 수정이 발생해야만 세션 브랜치가 생깁니다." }
+  },
+
+  PermissionRequest: {
+    title: "PermissionRequest",
+    sub: "권한 체계 (훅 스크립트 없음 — settings.json의 permissions 블록)",
+    used: true,
+    script: ".claude/settings.json · permissions",
+    nativeRole: "도구가 실행되려면 harness의 permission 체계를 통과해야 합니다. deny/ask/allow 규칙을 선언적으로 설정합니다.",
+    projectRole: [
+      "<code>Edit(**/.env)</code>, <code>Write(**/.env)</code> → <strong>deny</strong> (민감 정보 보호)",
+      "<code>Bash(git push)</code>, <code>Bash(git push:*)</code> → <strong>ask</strong> (원격 푸시는 항상 사용자 승인)"
+    ],
+    snippet: `"permissions": {
+  "deny": [
+    "Edit(**/.env)",
+    "Write(**/.env)"
+  ],
+  "ask": [
+    "Bash(git push:*)",
+    "Bash(git push)"
+  ]
+}`,
+    note: { type: "blue", text: "PreToolUse 인라인 훅과 함께 .env는 2중, git push도 permission ask로 잠금이 걸려있습니다." }
+  },
+
+  ToolExecutes: {
+    title: "[tool executes]",
+    sub: "Claude가 실제로 도구를 실행하는 단계",
+    used: false,
+    nativeRole: "Edit/Write/Bash/Read 같은 내장 도구, 혹은 MCP 도구가 실행됩니다. 이 단계 자체는 훅이 아닙니다.",
+    projectRole: null,
+    note: { type: "gray", text: "훅은 실행 전(PreToolUse)과 후(PostToolUse)에만 개입합니다." }
+  },
+
+  PostToolUse: {
+    title: "PostToolUse / PostToolUseFailure",
+    sub: "도구 실행 직후",
+    used: true,
+    matcher: 'matcher: "Write|Edit" · "Bash"',
+    script: ".claude/hooks/post-lint.sh + check-merge.sh",
+    nativeRole: "도구 실행이 끝난 직후 실행됩니다. 결과를 검증하거나 additionalContext로 Claude에게 피드백을 전달할 수 있습니다.",
+    projectRole: [
+      "<strong>post-lint.sh</strong> (Write|Edit) — 파일 저장 직후 <code>ruff check</code>(.py) / <code>eslint</code>(.ts/.tsx) 실행, 경고는 additionalContext로 Claude에 주입",
+      "<strong>check-merge.sh</strong> (Bash) — 실행된 Bash 명령에 <code>git merge</code>가 포함되면 감지. <code>feat/pr-develop</code>에서 머지가 일어난 경우 <code>decision: block</code>으로 Claude를 다시 깨워 'develop으로 PR 생성할까요?' 질문 강제"
+    ],
+    snippet: `# post-lint.sh 일부
+case "$FILE_PATH" in
+  *.py) ruff check "$FILE_PATH" || 경고 주입 ;;
+  *.ts|*.tsx) eslint "$FILE_PATH" || 경고 주입 ;;
+esac
+
+# check-merge.sh 일부
+echo "$COMMAND" | grep -q 'git merge' || exit 0
+
+if [ "$BRANCH" = "feat/pr-develop" ]; then
+  jq -n '{
+    "decision": "block",
+    "reason": "머지 완료. 반드시 develop으로 PR 생성 질문."
+  }'
+fi`,
+    note: { type: "blue", text: "PostToolUse에서 decision: block을 반환하면 Claude는 해당 알림을 반드시 읽고 사용자에게 후속 질문을 하도록 강제됩니다." }
+  },
+
+  SubagentStartStop: {
+    title: "SubagentStart / SubagentStop",
+    sub: "Task 도구로 서브에이전트 호출",
+    used: false,
+    nativeRole: "Claude가 Task 도구로 Explore, Plan, general-purpose 같은 서브에이전트를 실행할 때의 시작/종료 이벤트.",
+    projectRole: null,
+    note: { type: "gray", text: "이 프로젝트는 서브에이전트 실행을 특별히 감시하지 않습니다. 전역 훅에서만 관리됩니다." }
+  },
+
+  Notification: {
+    title: "Notification (Async)",
+    sub: "비동기 알림",
+    used: false,
+    nativeRole: "Claude가 사용자의 개입이 필요한 상태(권한 요청 대기 등)에 들어갈 때 비동기로 트리거되는 훅. 데스크톱 알림, 슬랙 등으로 연결할 수 있음.",
+    projectRole: null,
+    note: { type: "gray", text: "이 프로젝트는 외부 알림 연동을 사용하지 않습니다." }
+  },
+
+  Stop: {
+    title: "Stop",
+    sub: "Agentic Loop 종료 시 — 매 프롬프트 턴 끝",
+    used: true,
+    script: ".claude/hooks/auto-commit.sh",
+    nativeRole: "Claude가 한 턴을 마치고 사용자 응답을 기다리기 직전에 실행됩니다. 사이클의 마지막 훅이며, decision: block으로 Claude를 다시 깨울 수도 있습니다.",
+    projectRole: [
+      "<strong>안전망 분기</strong> — <code>feat/pr-develop</code>에 변경이 남아있으면 (Bash 수정 등으로 PreToolUse 우회) 기존 세션 브랜치로 체크아웃, 없으면 새로 생성",
+      "<strong>Lint 게이트</strong> — <code>ruff</code> → <code>flake8</code> → <code>py_compile</code> 폴백, <code>eslint</code> → <code>tsc --noEmit</code> 폴백. 실패 시 커밋 중단",
+      "<strong>.env 재보호</strong> — <code>git add -A</code> 후 <code>git reset -- '**/.env'</code>로 강제 unstage",
+      "<strong>한글 자동 커밋</strong> — 경로 기반 카테고리 감지(<code>chore(backend+frontend+hooks)</code>) + 파일 요약 + <code>Co-Authored-By: Claude</code>",
+      "<strong>머지 질문 강제</strong> — 세션 브랜치 커밋이면 <code>decision: block</code>을 반환해 Claude에게 'feat/pr-develop에 머지할까요?'를 반드시 묻게 함"
+    ],
+    snippet: `if [ "$BRANCH" = "feat/pr-develop" ]; then
+  EXISTING=$(git for-each-ref --sort=-committerdate \\
+    --format='%(refname:short)' \\
+    'refs/heads/feat/new-prompt-*' | head -1)
+  if [ -n "$EXISTING" ]; then
+    git checkout "$EXISTING"   # 재사용 (1개 유지)
+  else
+    git checkout -b "feat/new-prompt-$(date +%Y%m%d-%H%M%S)"
+  fi
+fi
+
+# lint → add -A → .env reset → 한글 커밋
+
+if [[ "$BRANCH" == feat/new-prompt-* ]]; then
+  jq -n '{
+    "decision": "block",
+    "reason": "머지 질문 강제"
+  }'
+fi`,
+    note: { type: "blue", text: "이 훅 하나가 TDD·Lint 게이팅·자동 커밋·한글 메시지·머지 질문 강제까지 한 번에 처리합니다. 프로젝트의 심장." }
+  },
+
+  PreCompact: {
+    title: "PreCompact · PostCompact",
+    sub: "컨텍스트 압축 주변 — 이 프로젝트는 PostCompact만 사용",
+    used: true,
+    script: ".claude/hooks/post-compact.sh",
+    nativeRole: "PreCompact는 압축 직전, PostCompact는 압축 직후 실행됩니다. 압축으로 잃어버리면 안 되는 핵심 규칙을 재주입하는 데 PostCompact가 적합합니다.",
+    projectRole: [
+      "<code>additionalContext</code>로 핵심 규칙을 압축 직후에 다시 주입",
+      "브랜치 규칙(pr-develop 직접 작업 금지, 세션 브랜치 사용)",
+      "Stop 훅 머지 알림 수신 시 반드시 질문",
+      "pr-develop 머지 후 develop PR 생성 질문",
+      "TDD 우선 · 한글 커밋 · <code>.env</code> 수정 금지 · <code>git push</code>는 승인 필요"
+    ],
+    snippet: `jq -n '{
+  "hookSpecificOutput": {
+    "hookEventName": "PostCompact",
+    "additionalContext": "
+      ## 브랜치 규칙
+      - feat/pr-develop 직접 작업 금지
+      - feat/new-prompt-* 세션 브랜치에서만 작업
+
+      ## Stop 훅 머지 알림
+      - block 알림 수신 시 반드시 사용자에게 머지 질문
+
+      ## 개발 규칙
+      - TDD (red → green → refactor)
+      - 커밋 메시지는 반드시 한글
+      - .env 파일 수정 금지
+    "
+  }
+}'`,
+    note: { type: "blue", text: "이미지에는 PreCompact만 있지만, Claude Code는 PostCompact 이벤트도 제공하며 이 프로젝트는 이를 사용합니다." }
+  },
+
+  SessionEnd: {
+    title: "SessionEnd",
+    sub: "세션 완전 종료",
+    used: false,
+    nativeRole: "CLI가 완전히 종료될 때 실행됩니다. 세션 정리, 외부 시스템 알림 등에 쓰입니다.",
+    projectRole: null,
+    note: { type: "gray", text: "이 프로젝트는 세션 종료 시 별도 정리를 하지 않습니다. 모든 커밋은 Stop 훅에서 즉시 처리되므로 종료 시점에 남은 작업이 없도록 설계되어 있습니다." }
+  },
+};
+
+function render(id) {
+  const d = DATA[id];
+  if (!d) return;
+  const box = document.getElementById('detail');
+  const badges = [];
+  if (d.used === true) badges.push('<span class="badge used">사용 중</span>');
+  else if (d.used === false) badges.push('<span class="badge unused">미사용</span>');
+  if (d.matcher) badges.push('<span class="badge matcher">' + d.matcher + '</span>');
+  if (d.script) badges.push('<span class="badge script">' + d.script + '</span>');
+
+  let html = '';
+  html += '<h2>' + d.title + '</h2>';
+  html += '<p class="sub">' + d.sub + '</p>';
+  html += '<div class="badges">' + badges.join('') + '</div>';
+
+  html += '<h3>Claude Code에서의 역할</h3>';
+  html += '<p>' + d.nativeRole + '</p>';
+
+  if (d.projectRole) {
+    html += '<h3>이 프로젝트의 동작</h3>';
+    html += '<ul>';
+    for (const item of d.projectRole) html += '<li>' + item + '</li>';
+    html += '</ul>';
+  }
+
+  if (d.snippet) {
+    html += '<h3>코드 스니펫</h3>';
+    html += '<pre><code>' + d.snippet.replace(/</g, '&lt;') + '</code></pre>';
+  }
+
+  if (d.note) {
+    html += '<div class="info-box ' + (d.note.type || '') + '">' + d.note.text + '</div>';
+  }
+
+  box.innerHTML = html;
+}
+
+document.querySelectorAll('.node').forEach(node => {
+  node.addEventListener('click', () => {
+    document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
+    node.classList.add('active');
+    render(node.dataset.id);
+  });
+});
+
+render('SessionStart');
+</script>
+
+</body>
+</html>
