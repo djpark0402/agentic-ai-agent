@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!-- 훅 라이프사이클 가이드 — 단일 세션 브랜치 정책 테스트용 주석 -->
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
@@ -286,7 +285,7 @@
 
     <h3 style="margin: 18px 0 10px;">이 프로젝트에서 훅이 담당하는 4가지 영역</h3>
     <div class="diagram">
-      <div class="flow-box"><span class="num">1</span><div><strong>Git 브랜치 전략</strong> — 보호 브랜치 차단 + 세션 브랜치 지연 생성 + 자동 커밋</div></div>
+      <div class="flow-box"><span class="num">1</span><div><strong>Git 브랜치 전략</strong> — 보호 브랜치 차단 + 세션 브랜치 <strong>단일 유지</strong>(재사용 or 지연 생성) + 자동 커밋 + 통째로 1회 머지</div></div>
       <div class="flow-box"><span class="num">2</span><div><strong>.env 파일 접근 제어</strong> — permissions.deny + PreToolUse 인라인 차단 이중 방어</div></div>
       <div class="flow-box"><span class="num">3</span><div><strong>컨텍스트 압축 복구</strong> — PostCompact로 핵심 규칙 재주입</div></div>
       <div class="flow-box"><span class="num">4</span><div><strong>TDD · Lint 강제</strong> — PostToolUse / Stop에서 ruff · eslint · tsc 실행</div></div>
@@ -307,27 +306,36 @@
 
     <div class="description">
       <strong>역할</strong><br/>
-      · <code>feat/pr-develop</code>이 없으면 <code>develop</code>에서 새로 만든다<br/>
-      · 있으면 그쪽으로 체크아웃만 한다<br/>
-      · <strong>세션 브랜치(feat/new-prompt-*)는 만들지 않는다</strong> — 탐색·질문만 하는 턴이면 빈 브랜치가 남지 않도록
+      · <code>feat/pr-develop</code>이 없으면 <code>develop</code>에서 생성. <code>develop</code>이 없으면 <code>main</code> → <code>master</code> 순으로 기준 브랜치를 찾아 <code>develop</code>부터 자동 생성<br/>
+      · 기존 <code>feat/new-prompt-*</code> 세션 브랜치가 있으면 체크아웃하여 <strong>이어서 작업</strong> (항상 1개만 유지)<br/>
+      · 기존 세션 브랜치가 없으면 <code>feat/pr-develop</code>으로만 이동 (PreToolUse의 지연 생성에 맡김)
     </div>
 
     <pre><code># 핵심 로직
 if ! git rev-parse --verify feat/pr-develop; then
-  git checkout develop
-  git checkout -b feat/pr-develop
+  # develop 없으면 main/master → develop 자동 생성
+  ...
 fi
-git checkout feat/pr-develop</code></pre>
+
+EXISTING=$(git for-each-ref --sort=-committerdate \
+  --format='%(refname:short)' \
+  'refs/heads/feat/new-prompt-*' | head -1)
+
+if [ -n "$EXISTING" ]; then
+  git checkout "$EXISTING"   # 이어서 작업
+else
+  git checkout feat/pr-develop  # Edit 시 지연 생성
+fi</code></pre>
 
     <div class="callout">
-      <strong>2026-04-20 정책 변경</strong> — 과거에는 SessionStart에서 세션 브랜치까지 선점 생성했지만, 빈 브랜치가 쌓이는 문제로 "지연 생성"으로 전환했습니다. 실제 Edit/Write가 발생하는 순간에만 만듭니다.
+      <strong>단일 세션 브랜치 정책</strong> — <code>feat/new-prompt-*</code>는 항상 1개만 유지. 세 훅(session-start · check-branch · auto-commit) 모두 "있으면 재사용, 없으면 생성" 로직을 공유해 중복이 발생하지 않습니다.
     </div>
   </div>
 
   <!-- 3. PreToolUse branch -->
   <div class="slide">
     <span class="step-number">STEP 3 / 8 · PreToolUse</span>
-    <h2>보호 브랜치 차단 + 세션 브랜치 지연 생성 (check-branch.sh)</h2>
+    <h2>보호 브랜치 차단 + 세션 브랜치 재사용/지연 생성 (check-branch.sh)</h2>
     <p class="subtitle">Edit/Write가 발생하기 직전, 현재 브랜치를 검사해 자동 분기하거나 차단합니다.</p>
 
     <div class="tag-row">
@@ -342,24 +350,32 @@ git checkout feat/pr-develop</code></pre>
 
     <ul class="key-points">
       <li><code>feat/new-prompt-*</code> → 그대로 허용 (exit 0)</li>
-      <li><code>feat/pr-develop</code> → <code>feat/new-prompt-YYYYMMDD-HHMMSS</code>를 만들어 전환 후 Edit 허용</li>
+      <li><code>feat/pr-develop</code> → 기존 <code>feat/new-prompt-*</code>가 있으면 체크아웃해서 <strong>이어서 작업</strong>, 없을 때만 새 세션 브랜치 생성</li>
       <li><code>main</code> / <code>master</code> / <code>develop</code> → <strong>exit 2로 차단</strong></li>
       <li><code>.claude/</code> 하위 파일은 어느 브랜치든 허용 (훅 자체 수정 목적)</li>
     </ul>
 
     <pre><code>case "$BRANCH" in
   feat/new-prompt-*) exit 0 ;;
+
   feat/pr-develop)
-    SESSION="feat/new-prompt-$(date +%Y%m%d-%H%M%S)"
-    git checkout -b "$SESSION"
-    exit 0 ;;
+    EXISTING=$(git for-each-ref --sort=-committerdate \
+      --format='%(refname:short)' \
+      'refs/heads/feat/new-prompt-*' | head -1)
+
+    if [ -n "$EXISTING" ]; then
+      git checkout "$EXISTING"     # 재사용
+    else
+      git checkout -b "feat/new-prompt-$(date +%Y%m%d-%H%M%S)"
+    fi
+    ;;
+
   main|master|develop)
-    echo "보호 브랜치에서 수정 불가" >&2
-    exit 2 ;;
+    exit 2 ;;   # 보호 브랜치 차단
 esac</code></pre>
 
     <div class="callout success">
-      이 지연 생성 전략 덕분에 질문·탐색만 하는 프롬프트에는 브랜치 변화가 0건입니다.
+      재사용 + 지연 생성 덕분에 질문·탐색만 하는 턴에는 브랜치 변화가 0건이고, 실제 수정이 여러 번 발생해도 브랜치는 1개만 유지됩니다.
     </div>
   </div>
 
@@ -450,7 +466,7 @@ esac</code></pre>
     </div>
 
     <div class="diagram">
-      <div class="flow-box"><span class="num">1</span><div><strong>안전망 분기</strong> — pr-develop에 변경이 남아있으면 세션 브랜치로 자동 분기 (Bash 수정/.claude 예외 대응)</div></div>
+      <div class="flow-box"><span class="num">1</span><div><strong>안전망 분기</strong> — pr-develop에 변경이 남아있으면 <strong>기존 <code>feat/new-prompt-*</code> 재사용</strong>, 없을 때만 새로 생성 후 분기 (Bash 수정/.claude 예외 대응)</div></div>
       <div class="flow-arrow">↓</div>
       <div class="flow-box"><span class="num">2</span><div><strong>Lint 게이트</strong> — ruff → flake8 → py_compile, eslint → tsc. 실패 시 커밋 중단</div></div>
       <div class="flow-arrow">↓</div>
@@ -463,6 +479,10 @@ esac</code></pre>
 chore(backend+frontend+hooks): settings.local.json, llm.py 외 9건
 
 Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;</code></pre>
+
+    <div class="callout">
+      <strong>머지 정책</strong> — 사용자가 승인하면 세션 브랜치를 통째로 <code>feat/pr-develop</code>에 <strong><code>--no-ff</code>로 1회 머지</strong>합니다. 커밋을 유형별로 쪼개지 않고, 분리 브랜치(<code>docs/...</code>, <code>chore/...</code> 등)도 만들지 않습니다. 머지 후 세션 브랜치는 삭제됩니다.
+    </div>
   </div>
 
   <!-- 7. PostCompact -->
@@ -516,17 +536,17 @@ Co-Authored-By: Claude &lt;noreply@anthropic.com&gt;</code></pre>
       <div class="flow-arrow">↓</div>
       <div class="flow-box"><span class="num">2</span><div><strong>(탐색·질문만)</strong> 브랜치 변화 0. 빈 세션 브랜치 생성 안 됨.</div></div>
       <div class="flow-arrow">↓</div>
-      <div class="flow-box"><span class="num">3</span><div><strong>실제 Edit/Write 발생</strong> → <em>PreToolUse·check-branch.sh</em>가 <code>feat/new-prompt-*</code> 자동 생성 + 전환</div></div>
+      <div class="flow-box"><span class="num">3</span><div><strong>실제 Edit/Write 발생</strong> → <em>PreToolUse·check-branch.sh</em>가 <strong>기존 <code>feat/new-prompt-*</code>가 있으면 재사용</strong>, 없을 때만 새로 생성 후 전환</div></div>
       <div class="flow-arrow">↓</div>
       <div class="flow-box"><span class="num">4</span><div><strong>파일 저장 직후</strong> → <em>PostToolUse·post-lint.sh</em>가 ruff/eslint로 경고 피드백</div></div>
       <div class="flow-arrow">↓</div>
       <div class="flow-box"><span class="num">5</span><div><strong>턴 종료</strong> → <em>Stop·auto-commit.sh</em>가 lint 통과시키고 한글 커밋, "pr-develop 머지할까요?" 질문 강제</div></div>
       <div class="flow-arrow">↓</div>
-      <div class="flow-box"><span class="num">6</span><div><strong>사용자 승인</strong> → Claude가 세션 브랜치 → pr-develop 머지</div></div>
+      <div class="flow-box"><span class="num">6</span><div><strong>사용자 승인</strong> → Claude가 세션 브랜치를 <strong>통째로 <code>--no-ff</code>로 1회 머지</strong> (유형별 분리 브랜치 X) → 세션 브랜치 삭제</div></div>
       <div class="flow-arrow">↓</div>
       <div class="flow-box"><span class="num">7</span><div><strong><code>git merge</code> 감지</strong> → <em>PostToolUse·check-merge.sh</em>가 "develop으로 PR 생성할까요?" 질문 강제</div></div>
       <div class="flow-arrow">↓</div>
-      <div class="flow-box"><span class="num">8</span><div><strong>PR 생성</strong> → rebase → <code>gh pr create --base develop</code> (push는 permissions.ask로 사용자 승인 필요)</div></div>
+      <div class="flow-box"><span class="num">8</span><div><strong>PR 생성</strong> → <code>develop</code> 기준으로 rebase → <code>git push --force-with-lease</code> (permissions.ask 승인) → <code>gh pr create --base develop</code></div></div>
     </div>
 
     <div class="callout success">
