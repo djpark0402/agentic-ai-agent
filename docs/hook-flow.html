@@ -309,6 +309,98 @@
     color: #475569;
   }
 
+  /* ── 프로젝트 설정 파일 보드 (상단) ── */
+  .project-files {
+    max-width: 1200px;
+    margin: 0 auto 24px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 24px 28px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+  }
+  .pf-title {
+    font-size: 1.15rem;
+    color: #0f172a;
+    margin-bottom: 4px;
+  }
+  .pf-subtitle {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 16px;
+  }
+  .pf-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 1000px) { .pf-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px)  { .pf-grid { grid-template-columns: 1fr; } }
+  .pf-card {
+    border: 1.5px solid;
+    border-radius: 10px;
+    padding: 14px;
+    background: #f8fafc;
+    transition: all 0.15s;
+  }
+  .pf-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08); }
+  .pf-card.claude-md { border-color: #fcd34d; background: #fffbeb; }
+  .pf-card.agents    { border-color: #93c5fd; background: #eff6ff; }
+  .pf-card.hooks     { border-color: #fca5a5; background: #fef2f2; }
+  .pf-card.settings  { border-color: #86efac; background: #f0fdf4; }
+  .pf-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+  .pf-icon { font-size: 1.4rem; line-height: 1; }
+  .pf-name {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #0f172a;
+    font-family: "SF Mono", Monaco, monospace;
+  }
+  .pf-path { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+  .pf-role {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px dashed #cbd5e1;
+  }
+  .pf-when { font-size: 0.75rem; color: #334155; margin-bottom: 8px; line-height: 1.55; }
+  .pf-when strong { color: #3b82f6; }
+  .pf-points { list-style: none; padding: 0; margin: 0; }
+  .pf-points li {
+    font-size: 0.73rem;
+    color: #475569;
+    padding: 2px 0 2px 10px;
+    position: relative;
+    line-height: 1.5;
+  }
+  .pf-points li::before {
+    content: "·";
+    position: absolute;
+    left: 0;
+    color: #94a3b8;
+    font-weight: bold;
+  }
+  .pf-points li code {
+    background: rgba(15, 23, 42, 0.06);
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.92em;
+    color: #be185d;
+  }
+  .pf-flow-note {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border-left: 3px solid #3b82f6;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    color: #334155;
+    line-height: 1.6;
+  }
+  .pf-flow-note strong { color: #1e40af; }
+
   /* ── 네비게이션 ── */
   .tour-top {
     display: flex;
@@ -407,6 +499,86 @@
   </div>
 </header>
 
+<section class="project-files">
+  <div class="pf-title">이 프로젝트가 Claude Code에 제공하는 설정 파일</div>
+  <div class="pf-subtitle">각 파일이 아래 플로우차트의 어떤 라이프사이클 단계에 연결되어 동작하는지 한눈에 보세요.</div>
+
+  <div class="pf-grid">
+    <div class="pf-card claude-md">
+      <div class="pf-head">
+        <span class="pf-icon">🗎</span>
+        <div>
+          <div class="pf-name">CLAUDE.md</div>
+          <div class="pf-path">프로젝트 루트</div>
+        </div>
+      </div>
+      <div class="pf-role">프로젝트 헌법 (공통 규칙)</div>
+      <div class="pf-when">→ <strong>SessionStart</strong>에서 harness가 자동으로 Claude 시스템 프롬프트에 주입. <strong>PostCompact</strong>에서 핵심 규칙만 다시 주입.</div>
+      <ul class="pf-points">
+        <li>아키텍처 · Git 워크플로 · 브랜치 전략</li>
+        <li>세션 브랜치 <strong>단일 유지</strong> + <code>--no-ff</code> 1회 머지 정책</li>
+        <li>TDD 우선 · 한글 커밋 · <code>.env</code> 수정 금지</li>
+        <li>Claude 필수 행동 규칙 (머지 질문 강제, PR 질문 강제)</li>
+      </ul>
+    </div>
+
+    <div class="pf-card agents">
+      <div class="pf-head">
+        <span class="pf-icon">🧑‍💻</span>
+        <div>
+          <div class="pf-name">.claude/agents/</div>
+          <div class="pf-path">backend-agent · frontend-agent · team</div>
+        </div>
+      </div>
+      <div class="pf-role">영역 특화 페르소나 (서브에이전트 프롬프트)</div>
+      <div class="pf-when">→ <strong>Task 도구</strong>로 서브에이전트 호출 시 해당 agent md 내용이 그 subagent의 시스템 프롬프트로 주입. <code>SubagentStart</code> 훅 시점에 사용.</div>
+      <ul class="pf-points">
+        <li><code>backend-agent</code> — Python/FastAPI/Pydantic, <code>backend/</code>만 수정, ruff lint</li>
+        <li><code>frontend-agent</code> — React/TS/Vite, <code>frontend/</code>만 수정, <code>any</code> 금지, 한글 IME</li>
+        <li><code>team</code> — 협업 규칙, Backend → Frontend 스키마 동기화 순서</li>
+      </ul>
+    </div>
+
+    <div class="pf-card hooks">
+      <div class="pf-head">
+        <span class="pf-icon">🎣</span>
+        <div>
+          <div class="pf-name">.claude/hooks/</div>
+          <div class="pf-path">6개 <code>.sh</code> 스크립트</div>
+        </div>
+      </div>
+      <div class="pf-role">라이프사이클 훅 (자동화 엔진)</div>
+      <div class="pf-when">→ 각 <strong>라이프사이클 이벤트</strong>에서 harness가 stdin으로 이벤트 JSON을 주며 실행. 훅이 stdout으로 JSON 반환해 Claude 동작에 개입.</div>
+      <ul class="pf-points">
+        <li><code>session-start.sh</code> · <code>check-branch.sh</code> · <code>check-merge.sh</code></li>
+        <li><code>post-lint.sh</code> · <code>post-compact.sh</code> · <code>auto-commit.sh</code></li>
+        <li>브랜치 보호 / 자동 커밋 / lint 게이트 / 압축 규칙 재주입</li>
+      </ul>
+    </div>
+
+    <div class="pf-card settings">
+      <div class="pf-head">
+        <span class="pf-icon">🔒</span>
+        <div>
+          <div class="pf-name">.claude/settings.json</div>
+          <div class="pf-path">훅 등록 + permission</div>
+        </div>
+      </div>
+      <div class="pf-role">훅 매니페스트 + 권한 체계</div>
+      <div class="pf-when">→ 훅 스크립트를 <strong>어떤 이벤트 · matcher</strong>에 연결할지 선언. 도구 실행 전 <strong>PermissionRequest</strong>에서 deny/ask 규칙 검증.</div>
+      <ul class="pf-points">
+        <li>hooks: SessionStart / PreToolUse / PostToolUse / Stop / PostCompact 등록</li>
+        <li>deny: <code>Edit(**/.env)</code>, <code>Write(**/.env)</code></li>
+        <li>ask: <code>Bash(git push)</code>, <code>Bash(git push:*)</code></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pf-flow-note">
+    <strong>어떻게 접목되는가</strong> — 세션 시작 시 <code>settings.json</code>이 훅을 등록하고, harness가 <code>CLAUDE.md</code>를 읽어 시스템 프롬프트에 넣습니다. 이후 Claude가 Edit/Write/Bash 같은 도구를 호출할 때마다 <code>hooks/*.sh</code>가 라이프사이클 이벤트에서 자동 실행되고, <code>agents/</code>는 Task 도구로 특정 영역(backend/frontend) 작업을 위임할 때 페르소나 프롬프트로 쓰입니다.
+  </div>
+</section>
+
 <div class="layout">
 
   <!-- ── 플로우차트 ── -->
@@ -428,7 +600,7 @@
       <div class="arrow">↓</div>
       <div class="node agentic used" data-id="PostToolUse">PostToolUse / PostToolUseFailure</div>
       <div class="arrow">↓</div>
-      <div class="node agentic unused" data-id="SubagentStartStop">SubagentStart / SubagentStop</div>
+      <div class="node agentic used" data-id="SubagentStartStop">SubagentStart / SubagentStop</div>
       <div class="loop-back">↻ 루프 — PreToolUse로 돌아감</div>
     </div>
 
@@ -624,11 +796,29 @@ fi`,
 
   SubagentStartStop: {
     title: "SubagentStart / SubagentStop",
-    sub: "Task 도구로 서브에이전트 호출",
-    used: false,
-    nativeRole: "Claude가 Task 도구로 Explore, Plan, general-purpose 같은 서브에이전트를 실행할 때의 시작/종료 이벤트.",
-    projectRole: null,
-    note: { type: "gray", text: "이 프로젝트는 서브에이전트 실행을 특별히 감시하지 않습니다. 전역 훅에서만 관리됩니다." }
+    sub: "Task 도구로 서브에이전트 호출 — agents/ 프롬프트가 주입되는 시점",
+    used: true,
+    script: ".claude/agents/ (훅 스크립트는 없음)",
+    nativeRole: "Claude가 Task 도구로 서브에이전트(Explore, Plan, general-purpose 또는 커스텀 agent)를 호출할 때의 시작/종료 이벤트. 이 프로젝트는 훅 스크립트 대신 agents/ 하위에 <strong>영역 특화 페르소나 md 파일</strong>을 두어, 호출 시 해당 agent의 md 내용이 subagent의 시스템 프롬프트가 됩니다.",
+    projectRole: [
+      "<strong><code>backend-agent.md</code></strong> — Python/FastAPI/LangChain 시니어 페르소나. <code>backend/</code>만 수정, <code>frontend/</code> · <code>.env</code> 수정 금지. ruff lint 필수, Pydantic 스키마 필수, TDD 우선",
+      "<strong><code>frontend-agent.md</code></strong> — React/TS/Vite 시니어 페르소나. <code>frontend/</code>만 수정, <code>any</code> 타입 금지, 한글 IME 호환 (<code>compositionstart/end</code>), <code>tsc</code> 통과 필수",
+      "<strong><code>team.md</code></strong> — 협업 규칙. Backend ↔ Frontend 인터페이스 변경 시 <code>schemas.py</code> → <code>types.ts</code> → <code>api.ts</code> 순서로 동기화",
+      "각 agent는 자신의 영역만 수정하며, 공통 변경(<code>CLAUDE.md</code>, 루트 설정)은 팀 차원에서 처리"
+    ],
+    snippet: `# agents/backend-agent.md 발췌
+## 페르소나
+당신은 Python/FastAPI 백엔드 시니어 개발자입니다.
+LangChain 기반 LLM 통합과 RESTful API 설계 전문.
+
+## 작업 범위
+- backend/ 디렉토리 내의 파일만 수정
+- frontend/ 수정 금지, .env 수정 금지
+
+## 금지 사항
+- 테스트 없이 실무 코드 작성 금지
+- any 타입 / 과도한 추상화 금지`,
+    note: { type: "blue", text: "agents/md 파일은 프로젝트에 항시 존재하는 '페르소나 사전'입니다. Task 도구로 호출되는 순간에만 해당 페르소나가 활성화되어 subagent의 시스템 프롬프트로 쓰입니다." }
   },
 
   Notification: {
