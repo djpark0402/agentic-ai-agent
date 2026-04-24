@@ -14,6 +14,13 @@
 # ============================================================================
 set -u
 
+# 메모리(feedback_branch_workflow.md) 규칙 — 모든 additionalContext에 공통 주입
+WORKFLOW_RULE="[브랜치 워크플로 메모리 규칙]
+- 작업 시작 시 반드시 feat/pr-develop이 아니라 세션 브랜치(feat/new-prompt-*)에서 작업할 것 — PreToolUse 훅이 자동으로 생성·전환
+- 작업 완료 시 반드시 사용자에게 'feat/pr-develop에 머지할까요?' 라고 물어볼 것 — Stop 훅이 block 알림으로 강제
+- 머지 완료 후 반드시 'develop으로 PR 생성할까요?' 라고 물어볼 것 — PostToolUse(check-merge.sh)가 block 알림으로 강제
+- 위 질문들을 절대 생략·요약·병합하지 말 것"
+
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 cd "${CWD:-$(git rev-parse --show-toplevel 2>/dev/null)}" || exit 0
@@ -44,11 +51,11 @@ if ! git rev-parse --verify feat/pr-develop >/dev/null 2>&1; then
     MSG="feat/pr-develop 브랜치 생성 완료 (from develop). 세션 브랜치는 실제 Edit/Write 시 자동 생성됩니다."
   fi
 
-  jq -n --arg msg "$MSG" '{
+  jq -n --arg msg "$MSG" --arg rule "$WORKFLOW_RULE" '{
     "systemMessage": $msg,
     "hookSpecificOutput": {
       "hookEventName": "SessionStart",
-      "additionalContext": "현재 브랜치: feat/pr-develop. 세션 브랜치(feat/new-prompt-*)는 Edit/Write가 필요한 순간 PreToolUse 훅이 자동 생성합니다. 브랜치 생성·체크는 수동으로 하지 마세요."
+      "additionalContext": ("현재 브랜치: feat/pr-develop. 세션 브랜치(feat/new-prompt-*)는 Edit/Write가 필요한 순간 PreToolUse 훅이 자동 생성합니다. 브랜치 생성·체크는 수동으로 하지 마세요.\n\n" + $rule)
     }
   }'
   exit 0
@@ -61,11 +68,11 @@ EXISTING_SESSION=$(git for-each-ref --sort=-committerdate \
 
 if [ -n "$EXISTING_SESSION" ]; then
   git checkout "$EXISTING_SESSION" >/dev/null 2>&1
-  jq -n --arg b "$EXISTING_SESSION" '{
+  jq -n --arg b "$EXISTING_SESSION" --arg rule "$WORKFLOW_RULE" '{
     "systemMessage": ("기존 세션 브랜치 " + $b + " 를 이어서 사용합니다. (feat/new-prompt-*는 항상 1개 유지)"),
     "hookSpecificOutput": {
       "hookEventName": "SessionStart",
-      "additionalContext": ("현재 브랜치: " + $b + ". 이 세션 브랜치 하나로만 작업하며, 새 브랜치를 만들지 않습니다. pr-develop 머지 후에만 새 세션 브랜치가 생성됩니다.")
+      "additionalContext": ("현재 브랜치: " + $b + ". 이 세션 브랜치 하나로만 작업하며, 새 브랜치를 만들지 않습니다. pr-develop 머지 후에만 새 세션 브랜치가 생성됩니다.\n\n" + $rule)
     }
   }'
   exit 0
@@ -74,11 +81,11 @@ fi
 # 세션 브랜치가 전혀 없으면 pr-develop으로만 이동 (Edit 시 지연 생성)
 git checkout feat/pr-develop >/dev/null 2>&1
 
-jq -n '{
+jq -n --arg rule "$WORKFLOW_RULE" '{
   "systemMessage": "통합 브랜치 feat/pr-develop으로 이동 완료. 세션 브랜치는 Edit/Write 시 자동 생성됩니다.",
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
-    "additionalContext": "현재 브랜치: feat/pr-develop. 세션 브랜치(feat/new-prompt-*)는 Edit/Write가 필요한 순간 PreToolUse 훅이 자동 생성합니다. 브랜치 생성·체크를 수동으로 하지 마세요."
+    "additionalContext": ("현재 브랜치: feat/pr-develop. 세션 브랜치(feat/new-prompt-*)는 Edit/Write가 필요한 순간 PreToolUse 훅이 자동 생성합니다. 브랜치 생성·체크를 수동으로 하지 마세요.\n\n" + $rule)
   }
 }'
 

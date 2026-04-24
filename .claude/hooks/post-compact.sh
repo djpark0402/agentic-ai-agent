@@ -22,10 +22,17 @@ jq -n --arg branch "$BRANCH" '{
     "additionalContext": (
       "[컨텍스트 압축 후 핵심 규칙 재주입]\n\n" +
 
+      "## [브랜치 워크플로 메모리 규칙] — 최상위 우선\n" +
+      "- 작업 시작 시 반드시 feat/pr-develop이 아니라 세션 브랜치(feat/new-prompt-*)에서 작업 (PreToolUse 훅 자동 처리)\n" +
+      "- 작업 완료 시 반드시 '\''feat/pr-develop에 머지할까요?'\'' 질문 (Stop 훅 block 강제)\n" +
+      "- 머지 완료 후 반드시 '\''develop으로 PR 생성할까요?'\'' 질문 (PostToolUse check-merge.sh block 강제)\n" +
+      "- 위 질문을 절대 생략·요약·병합하지 말 것\n" +
+      "  (근거: 과거 사용자 지적 — develop 직접 커밋/브랜치 없이 작업 시 히스토리 꼬임)\n\n" +
+
       "## 브랜치 규칙\n" +
       "- 현재 브랜치: " + $branch + "\n" +
       "- feat/pr-develop에서 직접 작업 절대 금지\n" +
-      "- 반드시 feat/new-prompt-* 세션 브랜치에서만 작업할 것\n\n" +
+      "- 반드시 feat/new-prompt-* 세션 브랜치에서만 작업할 것 (항상 1개만 유지)\n\n" +
 
       "## Stop 훅 머지 알림\n" +
       "- 자동 커밋 후 block 알림이 오면 반드시 사용자에게 feat/pr-develop에 머지할까요? 질문\n" +
