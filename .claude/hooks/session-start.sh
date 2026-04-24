@@ -60,13 +60,6 @@ EXISTING_SESSION=$(git for-each-ref --sort=-committerdate \
   'refs/heads/feat/new-prompt-*' 2>/dev/null | head -1)
 
 if [ -n "$EXISTING_SESSION" ]; then
-  # 2개 이상 있으면 가장 최근 하나만 남기고 나머지는 삭제
-  git for-each-ref --sort=-committerdate \
-    --format='%(refname:short)' \
-    'refs/heads/feat/new-prompt-*' 2>/dev/null | tail -n +2 | while read -r STALE; do
-      [ -n "$STALE" ] && git branch -D "$STALE" >/dev/null 2>&1
-    done
-
   git checkout "$EXISTING_SESSION" >/dev/null 2>&1
   jq -n --arg b "$EXISTING_SESSION" '{
     "systemMessage": ("기존 세션 브랜치 " + $b + " 를 이어서 사용합니다. (feat/new-prompt-*는 항상 1개 유지)"),
