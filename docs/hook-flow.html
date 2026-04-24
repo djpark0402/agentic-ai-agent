@@ -44,6 +44,7 @@
   }
   .legend .used { background: #3b82f6; }
   .legend .unused { background: #cbd5e1; }
+  .legend .claudemd { background: #f59e0b; }
 
   .layout {
     display: grid;
@@ -89,8 +90,10 @@
     box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
     transform: scale(1.04);
   }
-  .flowchart.tour .node:not(.active) { opacity: 0.35; filter: grayscale(0.4); }
-  .flowchart.tour .node.active { opacity: 1; filter: none; }
+  .flowchart.tour .node:not(.active),
+  .flowchart.tour .ctx-badge:not(.active) { opacity: 0.35; filter: grayscale(0.4); }
+  .flowchart.tour .node.active,
+  .flowchart.tour .ctx-badge.active { opacity: 1; filter: none; }
 
   /* 카테고리별 색 */
   .node.start { background: #dcfce7; border-color: #86efac; color: #166534; }
@@ -178,6 +181,34 @@
     padding: 4px 12px;
     border-radius: 999px;
     border: 1px dashed #cbd5e1;
+  }
+
+  /* CLAUDE.md 로드 시점 배지 */
+  .ctx-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fef3c7;
+    border: 1.5px dashed #f59e0b;
+    color: #92400e;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin: 4px 0;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ctx-badge:hover { background: #fde68a; transform: translateY(-1px); }
+  .ctx-badge.active {
+    outline: 2px solid #f59e0b;
+    outline-offset: 2px;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+  }
+  .ctx-arrow {
+    color: #f59e0b;
+    font-size: 0.9rem;
+    margin: 0;
   }
 
   /* ── 상세 패널 ── */
@@ -371,6 +402,7 @@
   <div class="legend">
     <span><span class="dot used"></span>사용 중</span>
     <span><span class="dot unused"></span>미사용</span>
+    <span><span class="dot claudemd"></span>🗎 CLAUDE.md 로드 시점</span>
     <span>점선 박스 = Agentic Loop</span>
   </div>
 </header>
@@ -380,6 +412,8 @@
   <!-- ── 플로우차트 ── -->
   <div class="flowchart">
     <div class="node start used active" data-id="SessionStart">Session Start</div>
+    <div class="ctx-arrow">↓</div>
+    <div class="ctx-badge" data-id="ClaudeMdLoad">🗎 CLAUDE.md 로드 · 시스템 프롬프트에 주입</div>
     <div class="arrow">↓</div>
     <div class="node plain unused" data-id="UserPromptSubmit">UserPromptSubmit</div>
     <div class="arrow">↓</div>
@@ -402,6 +436,8 @@
     <div class="node stop used" data-id="Stop">Stop</div>
     <div class="arrow">↓</div>
     <div class="node plain used" data-id="PreCompact">PreCompact · (실제는 PostCompact 사용)</div>
+    <div class="ctx-arrow">↓</div>
+    <div class="ctx-badge" data-id="ClaudeMdReinject">🗎 CLAUDE.md 재주입 (post-compact.sh additionalContext)</div>
     <div class="arrow">↓</div>
     <div class="node plain unused" data-id="SessionEnd">SessionEnd</div>
 
@@ -422,19 +458,23 @@
 const DATA = {
   SessionStart: {
     title: "Session Start",
-    sub: "세션 시작 시 1회 실행",
+    sub: "세션 시작 시 1회 실행 — CLAUDE.md 자동 로드 시점",
     used: true,
     matcher: 'matcher: "startup"',
     script: ".claude/hooks/session-start.sh",
-    nativeRole: "CLI 세션이 처음 기동될 때 단 한 번 실행됩니다. 프로젝트 환경 준비, 초기 컨텍스트 주입 같은 세션 초기화에 쓰입니다.",
+    nativeRole: "CLI 세션이 처음 기동될 때 단 한 번 실행됩니다. harness는 이 시점에 <strong>CLAUDE.md를 읽어 시스템 프롬프트에 자동 주입</strong>하며, SessionStart 훅은 프로젝트 환경 준비·초기 컨텍스트 주입에 쓰입니다.",
     projectRole: [
+      "<strong>🗎 CLAUDE.md 자동 로드</strong> — harness가 SessionStart 단계에서 CLAUDE.md를 읽어 Claude의 시스템 프롬프트에 포함. 프로젝트 규칙(브랜치 전략·자동화 정책·TDD 등)이 이 시점에 주입",
       "<code>feat/pr-develop</code> 통합 브랜치가 없으면 <code>develop</code>에서 자동 생성",
       "<code>develop</code>도 없으면 <code>main</code> → <code>master</code> 순으로 기준 브랜치를 찾아 <code>develop</code>부터 자동 생성",
-      "기존 <code>feat/new-prompt-*</code> 세션 브랜치가 있으면 체크아웃하여 <strong>이어서 작업</strong> (단일 유지 정책)",
+      "기존 <code>feat/new-prompt-*</code> 세션 브랜치가 있으면 체크아웃하여 <strong>이어서 작업</strong> (항상 1개만 유지)",
       "세션 브랜치가 2개 이상이면 가장 최근 commit 된 하나만 남기고 나머지 자동 삭제",
       "세션 브랜치가 없으면 <code>feat/pr-develop</code>으로만 이동 (PreToolUse의 지연 생성에 맡김)"
     ],
-    snippet: `# 핵심 분기
+    snippet: `# 1) harness: CLAUDE.md 자동 로드 (훅 스크립트 아님)
+#    → 시스템 프롬프트에 프로젝트 규칙 주입
+
+# 2) session-start.sh
 if ! git rev-parse --verify feat/pr-develop; then
   # develop 없으면 main/master → develop 자동 생성
   ...
@@ -449,7 +489,33 @@ if [ -n "$EXISTING" ]; then
 else
   git checkout feat/pr-develop  # Edit 시 지연 생성
 fi`,
-    note: { type: "blue", text: "세션을 여러 번 재시작해도 feat/new-prompt-* 브랜치가 1개만 유지되며, 동일 브랜치에서 작업이 이어집니다." }
+    note: { type: "blue", text: "세션을 여러 번 재시작해도 feat/new-prompt-* 브랜치가 1개만 유지되며, 동일 브랜치에서 작업이 이어집니다. CLAUDE.md는 매 세션 시작 시 최신 내용으로 주입됩니다." }
+  },
+
+  ClaudeMdLoad: {
+    title: "🗎 CLAUDE.md 로드",
+    sub: "SessionStart 직후 — harness가 자동 수행",
+    used: true,
+    script: "CLAUDE.md (프로젝트 루트)",
+    nativeRole: "Claude Code harness는 세션 시작 시 프로젝트 루트의 <code>CLAUDE.md</code>를 읽어 Claude의 시스템 프롬프트에 자동으로 포함합니다. 훅 스크립트가 아니라 harness 내장 기능입니다.",
+    projectRole: [
+      "아키텍처 정보 (Backend/Frontend/DB/LLM 연동)",
+      "Git 워크플로 (컨벤셔널 커밋, 한글 커밋, Bash 체이닝 금지)",
+      "<strong>브랜치 전략</strong> — <code>feat/new-prompt-*</code>는 항상 1개만 유지, 유형별 분리 브랜치 없음, 세션 종료 시 통째로 <code>--no-ff</code>로 1회 머지",
+      "훅별 역할 (SessionStart / PreToolUse / Stop / PostToolUse / PostCompact)",
+      "Claude 필수 행동 규칙 — Stop 훅 머지 알림 시 반드시 질문, 머지 완료 후 PR 질문 강제"
+    ],
+    snippet: `# CLAUDE.md의 핵심 브랜치 전략 섹션
+main (프로덕션)
+ └── develop (개발 통합)
+      └── feat/pr-develop (PR 준비용 통합 브랜치)
+           └── feat/new-prompt-* (세션 브랜치 — 1개만 유지)
+
+# 세션 종료 시
+1. 세션 브랜치 통째로 --no-ff로 1회 머지 (분리 X)
+2. pr-develop → develop PR 생성 (rebase 후)
+3. PR 템플릿 사용`,
+    note: { type: "blue", text: "CLAUDE.md는 Claude에게 '이 프로젝트의 헌법'입니다. 메모리(memory/)가 개인 선호라면, CLAUDE.md는 프로젝트 차원의 고정 규칙입니다." }
   },
 
   UserPromptSubmit: {
@@ -582,11 +648,12 @@ fi`,
     script: ".claude/hooks/auto-commit.sh",
     nativeRole: "Claude가 한 턴을 마치고 사용자 응답을 기다리기 직전에 실행됩니다. 사이클의 마지막 훅이며, decision: block으로 Claude를 다시 깨울 수도 있습니다.",
     projectRole: [
-      "<strong>안전망 분기</strong> — <code>feat/pr-develop</code>에 변경이 남아있으면 (Bash 수정 등으로 PreToolUse 우회) 기존 세션 브랜치로 체크아웃, 없으면 새로 생성",
+      "<strong>안전망 분기</strong> — <code>feat/pr-develop</code>에 변경이 남아있으면 (Bash 수정 등으로 PreToolUse 우회) 기존 세션 브랜치로 체크아웃, 없으면 새로 생성 (1개 유지)",
       "<strong>Lint 게이트</strong> — <code>ruff</code> → <code>flake8</code> → <code>py_compile</code> 폴백, <code>eslint</code> → <code>tsc --noEmit</code> 폴백. 실패 시 커밋 중단",
       "<strong>.env 재보호</strong> — <code>git add -A</code> 후 <code>git reset -- '**/.env'</code>로 강제 unstage",
       "<strong>한글 자동 커밋</strong> — 경로 기반 카테고리 감지(<code>chore(backend+frontend+hooks)</code>) + 파일 요약 + <code>Co-Authored-By: Claude</code>",
-      "<strong>머지 질문 강제</strong> — 세션 브랜치 커밋이면 <code>decision: block</code>을 반환해 Claude에게 'feat/pr-develop에 머지할까요?'를 반드시 묻게 함"
+      "<strong>머지 질문 강제</strong> — 세션 브랜치 커밋이면 <code>decision: block</code>을 반환해 Claude에게 'feat/pr-develop에 머지할까요?'를 반드시 묻게 함",
+      "<strong>머지 정책</strong> — 승인 시 세션 브랜치를 <strong>통째로 <code>--no-ff</code>로 1회 머지</strong> (유형별 분리 브랜치 생성 금지). 머지 후 세션 브랜치 삭제"
     ],
     snippet: `if [ "$BRANCH" = "feat/pr-develop" ]; then
   EXISTING=$(git for-each-ref --sort=-committerdate \\
@@ -612,13 +679,13 @@ fi`,
 
   PreCompact: {
     title: "PreCompact · PostCompact",
-    sub: "컨텍스트 압축 주변 — 이 프로젝트는 PostCompact만 사용",
+    sub: "컨텍스트 압축 주변 — 이 프로젝트는 PostCompact만 사용 · CLAUDE.md 재주입 지점",
     used: true,
     script: ".claude/hooks/post-compact.sh",
-    nativeRole: "PreCompact는 압축 직전, PostCompact는 압축 직후 실행됩니다. 압축으로 잃어버리면 안 되는 핵심 규칙을 재주입하는 데 PostCompact가 적합합니다.",
+    nativeRole: "PreCompact는 압축 직전, PostCompact는 압축 직후 실행됩니다. 압축으로 인해 <strong>CLAUDE.md의 내용이 요약되거나 흐려질 수 있으므로</strong>, PostCompact에서 핵심 규칙을 additionalContext로 다시 주입하는 것이 중요합니다.",
     projectRole: [
-      "<code>additionalContext</code>로 핵심 규칙을 압축 직후에 다시 주입",
-      "브랜치 규칙(pr-develop 직접 작업 금지, 세션 브랜치 사용)",
+      "<strong>🗎 CLAUDE.md 핵심 규칙 재주입</strong> — 압축 후 흐려진 규칙을 <code>additionalContext</code>로 다시 Claude 컨텍스트에 넣음",
+      "브랜치 규칙 (pr-develop 직접 작업 금지, feat/new-prompt-* 단일 유지)",
       "Stop 훅 머지 알림 수신 시 반드시 질문",
       "pr-develop 머지 후 develop PR 생성 질문",
       "TDD 우선 · 한글 커밋 · <code>.env</code> 수정 금지 · <code>git push</code>는 승인 필요"
@@ -644,6 +711,39 @@ fi`,
     note: { type: "blue", text: "이미지에는 PreCompact만 있지만, Claude Code는 PostCompact 이벤트도 제공하며 이 프로젝트는 이를 사용합니다." }
   },
 
+  ClaudeMdReinject: {
+    title: "🗎 CLAUDE.md 재주입",
+    sub: "PostCompact 시점 — post-compact.sh가 수행",
+    used: true,
+    script: ".claude/hooks/post-compact.sh",
+    nativeRole: "컨텍스트 압축은 메시지를 요약해 토큰을 아끼지만, CLAUDE.md의 세부 규칙이 일부 희미해질 수 있습니다. post-compact.sh가 이 시점에 <code>additionalContext</code>로 핵심 규칙을 다시 Claude 컨텍스트에 주입합니다.",
+    projectRole: [
+      "브랜치 규칙 재주입 — pr-develop 직접 작업 금지, feat/new-prompt-* 단일 유지",
+      "Stop 훅 block 알림 → 반드시 머지 질문",
+      "머지 완료 → 반드시 develop PR 생성 질문",
+      "PR 전 rebase 필수, 한글 커밋, .env 수정 금지, git push는 승인 필요",
+      "TDD (red → green → refactor) 우선"
+    ],
+    snippet: `jq -n '{
+  "hookSpecificOutput": {
+    "hookEventName": "PostCompact",
+    "additionalContext": "
+      ## 브랜치 규칙
+      - feat/pr-develop 직접 작업 금지
+      - feat/new-prompt-* 세션 브랜치에서만 작업
+      - 세션 브랜치는 항상 1개만 유지
+
+      ## Stop 훅 머지 알림
+      - block 알림 수신 시 반드시 사용자에게 머지 질문
+
+      ## 세션 종료
+      - 세션 브랜치 통째로 --no-ff 1회 머지 (분리 X)
+    "
+  }
+}'`,
+    note: { type: "blue", text: "CLAUDE.md는 SessionStart에서 한 번 로드되고, PostCompact에서 핵심 규칙만 발췌해 다시 주입됩니다. 두 시점 모두 Claude가 규칙을 '재확인'하는 타이밍입니다." }
+  },
+
   SessionEnd: {
     title: "SessionEnd",
     sub: "세션 완전 종료",
@@ -657,6 +757,7 @@ fi`,
 // 라이프사이클 순서 (투어 순회 순서)
 const ORDER = [
   'SessionStart',
+  'ClaudeMdLoad',
   'UserPromptSubmit',
   'PreToolUse',
   'PermissionRequest',
@@ -666,6 +767,7 @@ const ORDER = [
   'Notification',
   'Stop',
   'PreCompact',
+  'ClaudeMdReinject',
   'SessionEnd',
 ];
 
@@ -743,8 +845,8 @@ function render(id) {
 }
 
 function highlightNode(id) {
-  document.querySelectorAll('.node').forEach(n => n.classList.remove('active'));
-  const target = document.querySelector('.node[data-id="' + id + '"]');
+  document.querySelectorAll('.node, .ctx-badge').forEach(n => n.classList.remove('active'));
+  const target = document.querySelector('.node[data-id="' + id + '"], .ctx-badge[data-id="' + id + '"]');
   if (target) {
     target.classList.add('active');
     target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -788,8 +890,8 @@ function updatePlayBtn() {
   else { btn.textContent = '▶'; btn.classList.remove('playing'); btn.title = '자동 재생'; }
 }
 
-// 노드 클릭 시 해당 단계로 이동
-document.querySelectorAll('.node').forEach(node => {
+// 노드/배지 클릭 시 해당 단계로 이동
+document.querySelectorAll('.node, .ctx-badge').forEach(node => {
   node.addEventListener('click', () => {
     const idx = ORDER.indexOf(node.dataset.id);
     if (idx >= 0) { stopPlay(); goTo(idx); }
