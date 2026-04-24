@@ -8,8 +8,8 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    color: #e2e8f0;
+    background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
+    color: #1e293b;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -24,13 +24,13 @@
   }
   header h1 {
     font-size: 1.9rem;
-    background: linear-gradient(90deg, #60a5fa, #a78bfa, #f472b6);
+    background: linear-gradient(90deg, #2563eb, #7c3aed, #db2777);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     margin-bottom: 8px;
   }
-  header p { color: #94a3b8; font-size: 0.95rem; }
+  header p { color: #64748b; font-size: 0.95rem; }
 
   .progress-bar {
     display: flex;
@@ -44,23 +44,22 @@
     width: 36px;
     height: 6px;
     border-radius: 3px;
-    background: #334155;
+    background: #e2e8f0;
     transition: background 0.3s, transform 0.3s;
     cursor: pointer;
   }
-  .progress-dot.active { background: linear-gradient(90deg, #60a5fa, #a78bfa); transform: scaleY(1.4); }
-  .progress-dot.done { background: #475569; }
+  .progress-dot.active { background: linear-gradient(90deg, #3b82f6, #8b5cf6); transform: scaleY(1.4); }
+  .progress-dot.done { background: #cbd5e1; }
 
   .slide-container {
     width: 100%;
     max-width: 900px;
-    background: rgba(15, 23, 42, 0.7);
-    border: 1px solid #334155;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 16px;
     padding: 32px;
     min-height: 520px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
   }
   .slide { display: none; animation: fadeIn 0.4s ease; }
   .slide.active { display: block; }
@@ -72,20 +71,20 @@
   .step-number {
     display: inline-block;
     font-size: 0.8rem;
-    color: #94a3b8;
-    background: #1e293b;
+    color: #64748b;
+    background: #f1f5f9;
     padding: 4px 12px;
     border-radius: 999px;
-    border: 1px solid #334155;
+    border: 1px solid #e2e8f0;
     margin-bottom: 12px;
   }
   .slide h2 {
     font-size: 1.6rem;
     margin-bottom: 8px;
-    color: #f1f5f9;
+    color: #0f172a;
   }
   .slide .subtitle {
-    color: #94a3b8;
+    color: #64748b;
     font-size: 0.95rem;
     margin-bottom: 20px;
   }
@@ -101,20 +100,20 @@
     border-radius: 6px;
     font-weight: 600;
   }
-  .tag.hook { background: #1e3a8a; color: #bfdbfe; }
-  .tag.matcher { background: #422006; color: #fde68a; }
-  .tag.file { background: #064e3b; color: #bbf7d0; }
-  .tag.danger { background: #7f1d1d; color: #fecaca; }
+  .tag.hook { background: #dbeafe; color: #1e40af; }
+  .tag.matcher { background: #fef3c7; color: #92400e; }
+  .tag.file { background: #dcfce7; color: #166534; }
+  .tag.danger { background: #fee2e2; color: #991b1b; }
 
   .description {
-    background: #0f172a;
-    border-left: 3px solid #60a5fa;
+    background: #f8fafc;
+    border-left: 3px solid #3b82f6;
     padding: 14px 18px;
     border-radius: 6px;
     margin-bottom: 18px;
-    color: #cbd5e1;
+    color: #334155;
   }
-  .description strong { color: #f1f5f9; }
+  .description strong { color: #0f172a; }
 
   .key-points {
     list-style: none;
@@ -123,20 +122,20 @@
   .key-points li {
     padding: 8px 0 8px 28px;
     position: relative;
-    color: #cbd5e1;
-    border-bottom: 1px dashed #1e293b;
+    color: #334155;
+    border-bottom: 1px dashed #e2e8f0;
   }
   .key-points li::before {
     content: "→";
     position: absolute;
     left: 8px;
-    color: #60a5fa;
+    color: #3b82f6;
     font-weight: bold;
   }
   .key-points li:last-child { border-bottom: none; }
 
   pre {
-    background: #020617;
+    background: #0f172a;
     border: 1px solid #1e293b;
     border-radius: 8px;
     padding: 14px 16px;
@@ -146,22 +145,34 @@
     margin-bottom: 16px;
   }
   code { font-family: "SF Mono", "Monaco", "Consolas", monospace; }
+  .description code,
+  .key-points code,
+  .callout code,
+  .flow-box code {
+    background: #f1f5f9;
+    color: #be185d;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
 
   .flow-box {
-    background: linear-gradient(135deg, #1e293b, #0f172a);
-    border: 1px solid #334155;
+    background: linear-gradient(135deg, #f8fafc, #eef2f7);
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
     padding: 14px 18px;
     margin: 8px 0;
     display: flex;
     align-items: center;
     gap: 12px;
+    color: #334155;
   }
+  .flow-box strong { color: #0f172a; }
   .flow-box .num {
     flex: 0 0 32px;
     height: 32px;
-    background: linear-gradient(135deg, #60a5fa, #a78bfa);
-    color: #0f172a;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #ffffff;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -170,7 +181,7 @@
   }
   .flow-arrow {
     text-align: center;
-    color: #475569;
+    color: #cbd5e1;
     font-size: 1.5rem;
     margin: 4px 0;
   }
@@ -195,38 +206,41 @@
     font-family: inherit;
   }
   .btn-prev {
-    background: #1e293b;
-    color: #cbd5e1;
-    border: 1px solid #334155;
+    background: #ffffff;
+    color: #334155;
+    border: 1px solid #cbd5e1;
   }
-  .btn-prev:hover:not(:disabled) { background: #334155; }
+  .btn-prev:hover:not(:disabled) { background: #f1f5f9; }
   .btn-next {
     background: linear-gradient(90deg, #3b82f6, #8b5cf6);
     color: white;
   }
-  .btn-next:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4); }
+  .btn-next:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(139, 92, 246, 0.3); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .counter { color: #94a3b8; font-size: 0.9rem; }
+  .counter { color: #64748b; font-size: 0.9rem; }
 
   .callout {
-    background: #422006;
+    background: #fffbeb;
     border-left: 3px solid #f59e0b;
     padding: 12px 16px;
     border-radius: 6px;
-    color: #fde68a;
+    color: #92400e;
     font-size: 0.9rem;
     margin-bottom: 16px;
   }
+  .callout strong { color: #78350f; }
   .callout.danger {
-    background: #450a0a;
+    background: #fef2f2;
     border-color: #ef4444;
-    color: #fecaca;
+    color: #991b1b;
   }
+  .callout.danger strong { color: #7f1d1d; }
   .callout.success {
-    background: #052e16;
+    background: #f0fdf4;
     border-color: #22c55e;
-    color: #bbf7d0;
+    color: #166534;
   }
+  .callout.success strong { color: #14532d; }
 
   .diagram {
     display: grid;
@@ -240,9 +254,11 @@
     font-family: "SF Mono", monospace;
     font-size: 0.85rem;
   }
-  .branch-line .indent { color: #475569; }
-  .branch-line .name { color: #a5f3fc; }
-  .branch-line .note { color: #94a3b8; font-family: inherit; font-size: 0.82rem; }
+  .branch-line .indent { color: #94a3b8; }
+  .branch-line .name { color: #2563eb; }
+  .branch-line .note { color: #64748b; font-family: inherit; font-size: 0.82rem; }
+
+  .slide h3 { color: #0f172a; }
 </style>
 </head>
 <body>
@@ -267,7 +283,7 @@
       Claude에게 "매번 해줘"라고 지시하는 것은 불완전합니다. 훅은 <strong>harness(런타임)</strong>가 직접 실행하므로 Claude의 실수·망각과 무관하게 규칙이 강제됩니다. 커밋 메시지 한글화, 브랜치 보호, .env 차단 같은 것은 메모리가 아니라 훅으로 구현해야 합니다.
     </div>
 
-    <h3 style="margin: 18px 0 10px; color: #f1f5f9;">이 프로젝트에서 훅이 담당하는 4가지 영역</h3>
+    <h3 style="margin: 18px 0 10px;">이 프로젝트에서 훅이 담당하는 4가지 영역</h3>
     <div class="diagram">
       <div class="flow-box"><span class="num">1</span><div><strong>Git 브랜치 전략</strong> — 보호 브랜치 차단 + 세션 브랜치 지연 생성 + 자동 커밋</div></div>
       <div class="flow-box"><span class="num">2</span><div><strong>.env 파일 접근 제어</strong> — permissions.deny + PreToolUse 인라인 차단 이중 방어</div></div>
