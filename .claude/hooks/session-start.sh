@@ -54,7 +54,31 @@ if ! git rev-parse --verify feat/pr-develop >/dev/null 2>&1; then
   exit 0
 fi
 
-# pr-develop으로 이동만 (세션 브랜치 생성 없음)
+# 기존 세션 브랜치가 있으면 재사용. 정책: feat/new-prompt-* 는 항상 1개만 유지.
+EXISTING_SESSION=$(git for-each-ref --sort=-committerdate \
+  --format='%(refname:short)' \
+  'refs/heads/feat/new-prompt-*' 2>/dev/null | head -1)
+
+if [ -n "$EXISTING_SESSION" ]; then
+  # 2개 이상 있으면 가장 최근 하나만 남기고 나머지는 삭제
+  git for-each-ref --sort=-committerdate \
+    --format='%(refname:short)' \
+    'refs/heads/feat/new-prompt-*' 2>/dev/null | tail -n +2 | while read -r STALE; do
+      [ -n "$STALE" ] && git branch -D "$STALE" >/dev/null 2>&1
+    done
+
+  git checkout "$EXISTING_SESSION" >/dev/null 2>&1
+  jq -n --arg b "$EXISTING_SESSION" '{
+    "systemMessage": ("기존 세션 브랜치 " + $b + " 를 이어서 사용합니다. (feat/new-prompt-*는 항상 1개 유지)"),
+    "hookSpecificOutput": {
+      "hookEventName": "SessionStart",
+      "additionalContext": ("현재 브랜치: " + $b + ". 이 세션 브랜치 하나로만 작업하며, 새 브랜치를 만들지 않습니다. pr-develop 머지 후에만 새 세션 브랜치가 생성됩니다.")
+    }
+  }'
+  exit 0
+fi
+
+# 세션 브랜치가 전혀 없으면 pr-develop으로만 이동 (Edit 시 지연 생성)
 git checkout feat/pr-develop >/dev/null 2>&1
 
 jq -n '{
