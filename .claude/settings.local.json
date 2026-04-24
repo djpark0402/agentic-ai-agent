@@ -79,7 +79,8 @@
       "Bash(bash -n /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)",
       "Bash(git *)",
       "Bash(bash -n /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/post-compact.sh)",
-      "Bash(bash /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)"
+      "Bash(bash /Users/dongjunpark/github/agentic-ai-agent/.claude/hooks/session-start.sh)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
