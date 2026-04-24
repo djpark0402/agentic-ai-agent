@@ -295,8 +295,8 @@
   <!-- 2. SessionStart -->
   <div class="slide">
     <span class="step-number">STEP 2 / 8 · SessionStart</span>
-    <h2>통합 브랜치 준비 (session-start.sh)</h2>
-    <p class="subtitle">CLI 최초 기동 시 1회만 실행 — 세션 브랜치는 여기서 만들지 않습니다.</p>
+    <h2>모든 브랜치 즉시 확보 (session-start.sh)</h2>
+    <p class="subtitle">CLI 기동 시 1회만 실행 — develop부터 세션 브랜치까지 4단계를 순차 확보합니다.</p>
 
     <div class="tag-row">
       <span class="tag hook">Hook: SessionStart</span>
@@ -305,30 +305,40 @@
     </div>
 
     <div class="description">
-      <strong>역할</strong><br/>
-      · <code>feat/pr-develop</code>이 없으면 <code>develop</code>에서 생성. <code>develop</code>이 없으면 <code>main</code> → <code>master</code> 순으로 기준 브랜치를 찾아 <code>develop</code>부터 자동 생성<br/>
-      · 기존 <code>feat/new-prompt-*</code> 세션 브랜치가 있으면 체크아웃하여 <strong>이어서 작업</strong> (항상 1개만 유지)<br/>
-      · 기존 세션 브랜치가 없으면 <code>feat/pr-develop</code>으로만 이동 (PreToolUse의 지연 생성에 맡김)
+      <strong>4단계 순차 확보</strong><br/>
+      1. <code>develop</code>이 없으면 <code>main</code> → <code>master</code> 순으로 기준을 찾아 <code>develop</code> 자동 생성<br/>
+      2. <code>feat/pr-develop</code>이 없으면 <code>develop</code>에서 생성<br/>
+      3. 기존 <code>feat/new-prompt-*</code>가 있으면 체크아웃해 <strong>이어서 작업</strong><br/>
+      4. 없으면 <code>feat/pr-develop</code>에서 <strong>새 세션 브랜치 즉시 생성</strong>
     </div>
 
-    <pre><code># 핵심 로직
-if ! git rev-parse --verify feat/pr-develop; then
-  # develop 없으면 main/master → develop 자동 생성
-  ...
+    <pre><code># 1) develop 확보 (없으면 main/master에서 생성)
+if ! git rev-parse --verify develop; then
+  DEV_SRC=$(git rev-parse --verify main && echo main || echo master)
+  git checkout "$DEV_SRC"
+  git checkout -b develop
 fi
 
+# 2) feat/pr-develop 확보
+if ! git rev-parse --verify feat/pr-develop; then
+  git checkout develop
+  git checkout -b feat/pr-develop
+fi
+git checkout feat/pr-develop
+
+# 3~4) 세션 브랜치 재사용 or 즉시 생성
 EXISTING=$(git for-each-ref --sort=-committerdate \
   --format='%(refname:short)' \
   'refs/heads/feat/new-prompt-*' | head -1)
 
 if [ -n "$EXISTING" ]; then
-  git checkout "$EXISTING"   # 이어서 작업
+  git checkout "$EXISTING"       # 이어서 작업
 else
-  git checkout feat/pr-develop  # Edit 시 지연 생성
+  git checkout -b "feat/new-prompt-$(date +%Y%m%d-%H%M%S)"
 fi</code></pre>
 
     <div class="callout">
-      <strong>단일 세션 브랜치 정책</strong> — <code>feat/new-prompt-*</code>는 항상 1개만 유지. 세 훅(session-start · check-branch · auto-commit) 모두 "있으면 재사용, 없으면 생성" 로직을 공유해 중복이 발생하지 않습니다.
+      <strong>단일 세션 브랜치 정책</strong> — <code>feat/new-prompt-*</code>는 항상 1개만 유지. 머지되면 삭제되고 다음 세션에서 새로 만듭니다. 머지 거부되면 유지되어 다음 세션에서 이어서 작업합니다.
     </div>
   </div>
 

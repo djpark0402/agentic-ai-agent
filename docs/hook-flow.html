@@ -651,30 +651,42 @@ const DATA = {
     nativeRole: "CLI 세션이 처음 기동될 때 단 한 번 실행됩니다. harness는 이 시점에 <strong>CLAUDE.md를 읽어 시스템 프롬프트에 자동 주입</strong>하며, SessionStart 훅은 프로젝트 환경 준비·초기 컨텍스트 주입에 쓰입니다.",
     projectRole: [
       "<strong>🗎 CLAUDE.md 자동 로드</strong> — harness가 SessionStart 단계에서 CLAUDE.md를 읽어 Claude의 시스템 프롬프트에 포함. 프로젝트 규칙(브랜치 전략·자동화 정책·TDD 등)이 이 시점에 주입",
-      "<code>feat/pr-develop</code> 통합 브랜치가 없으면 <code>develop</code>에서 자동 생성",
-      "<code>develop</code>도 없으면 <code>main</code> → <code>master</code> 순으로 기준 브랜치를 찾아 <code>develop</code>부터 자동 생성",
-      "기존 <code>feat/new-prompt-*</code> 세션 브랜치가 있으면 체크아웃하여 <strong>이어서 작업</strong> (항상 1개만 유지)",
-      "세션 브랜치가 없으면 <code>feat/pr-develop</code>으로만 이동 (PreToolUse의 지연 생성에 맡김)"
+      "<strong>1단계</strong> — <code>develop</code>이 없으면 <code>main</code> → <code>master</code> 순으로 기준을 찾아 <code>develop</code> 자동 생성",
+      "<strong>2단계</strong> — <code>feat/pr-develop</code>이 없으면 <code>develop</code>에서 생성",
+      "<strong>3단계</strong> — 기존 <code>feat/new-prompt-*</code>가 있으면 체크아웃해 <strong>이어서 작업</strong>",
+      "<strong>4단계</strong> — 없으면 <code>feat/pr-develop</code>에서 새 세션 브랜치 <strong>즉시 생성</strong>",
+      "작업 완료 후: 머지되면 세션 브랜치 삭제, 거부되면 유지 → 다음 세션에서 이어서"
     ],
     snippet: `# 1) harness: CLAUDE.md 자동 로드 (훅 스크립트 아님)
 #    → 시스템 프롬프트에 프로젝트 규칙 주입
 
-# 2) session-start.sh
-if ! git rev-parse --verify feat/pr-develop; then
-  # develop 없으면 main/master → develop 자동 생성
-  ...
+# 2) session-start.sh — 4단계 순차 확보
+# (1) develop 확보
+if ! git rev-parse --verify develop; then
+  DEV_SRC=$(git rev-parse --verify main \\
+    && echo main || echo master)
+  git checkout "$DEV_SRC"
+  git checkout -b develop
 fi
 
+# (2) feat/pr-develop 확보
+if ! git rev-parse --verify feat/pr-develop; then
+  git checkout develop
+  git checkout -b feat/pr-develop
+fi
+git checkout feat/pr-develop
+
+# (3~4) 세션 브랜치 재사용 or 즉시 생성
 EXISTING=$(git for-each-ref --sort=-committerdate \\
   --format='%(refname:short)' \\
   'refs/heads/feat/new-prompt-*' | head -1)
 
 if [ -n "$EXISTING" ]; then
-  git checkout "$EXISTING"   # 이어서 작업
+  git checkout "$EXISTING"      # 이어서 작업
 else
-  git checkout feat/pr-develop  # Edit 시 지연 생성
+  git checkout -b "feat/new-prompt-$(date +%Y%m%d-%H%M%S)"
 fi`,
-    note: { type: "blue", text: "세션을 여러 번 재시작해도 feat/new-prompt-* 브랜치가 1개만 유지되며, 동일 브랜치에서 작업이 이어집니다. CLAUDE.md는 매 세션 시작 시 최신 내용으로 주입됩니다." }
+    note: { type: "blue", text: "세션이 시작되면 항상 세션 브랜치 위에 서 있습니다. 지연 생성은 없고, 세션 브랜치는 항상 1개만 유지됩니다. CLAUDE.md는 매 세션 시작 시 최신 내용으로 주입됩니다." }
   },
 
   ClaudeMdLoad: {
